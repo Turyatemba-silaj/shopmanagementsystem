@@ -158,8 +158,8 @@ button:disabled {
   border-radius: 8px;
   color: white;
   background:
-    linear-gradient(rgba(16, 35, 63, 0.56), rgba(16, 35, 63, 0.8)),
-    url("https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1400&q=80");
+    linear-gradient(rgba(16, 35, 63, 0.08), rgba(16, 35, 63, 0.34)),
+    url("home-supermarket.webp");
   background-size: cover;
   background-position: center;
   display: flex;
@@ -172,6 +172,7 @@ button:disabled {
   max-width: 620px;
   font-size: 30px;
   line-height: 1.2;
+  text-shadow: 0 2px 12px rgba(16, 35, 63, 0.72);
 }
 
 .home-actions,

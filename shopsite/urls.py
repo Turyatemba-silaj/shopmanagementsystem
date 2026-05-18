@@ -23,6 +23,7 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('app.js', views.app_js, name='app-js'),
     path('styles.css', views.styles, name='styles'),
+    path('home-supermarket.webp', views.home_supermarket_image, name='home-supermarket-image'),
     path('api/', include('store.urls')),
     path('admin/', admin.site.urls),
 ]

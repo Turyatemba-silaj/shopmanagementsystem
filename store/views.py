@@ -97,6 +97,10 @@ def styles(_request):
     return _public_file("styles.css")
 
 
+def home_supermarket_image(_request):
+    return _public_file("home-supermarket.webp")
+
+
 def _body(request):
     return json.loads(request.body.decode("utf-8") or "{}")
 
