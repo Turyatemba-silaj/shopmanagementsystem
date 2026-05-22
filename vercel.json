@@ -13,8 +13,19 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "shopsite/wsgi.py"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "shopsite/wsgi.py"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
     }
   ]
 }
