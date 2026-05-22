@@ -1,0 +1,20 @@
+{
+  "builds": [
+    {
+      "src": "shopsite/wsgi.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "public/**",
+          "shop.db"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "shopsite/wsgi.py"
+    }
+  ]
+}

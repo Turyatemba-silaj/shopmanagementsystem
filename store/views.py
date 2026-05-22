@@ -10,7 +10,7 @@ from django.conf import settings
 from django.core import signing
 from django.db import IntegrityError, transaction
 from django.db.models import F, OuterRef, Q, Subquery, Sum, Value
-from django.http import FileResponse, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -82,6 +82,8 @@ CRUD = {
 
 def _public_file(name):
     path = Path(settings.BASE_DIR) / "public" / name
+    if not path.is_file():
+        raise Http404(f"Public file not found: {name}")
     return FileResponse(path.open("rb"))
 
 
