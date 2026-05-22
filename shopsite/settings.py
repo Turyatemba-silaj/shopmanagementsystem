@@ -10,10 +10,27 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _database_path():
+    bundled_db = BASE_DIR / 'shop.db'
+    if os.environ.get('VERCEL'):
+        runtime_db = Path(tempfile.gettempdir()) / 'shop.db'
+        if bundled_db.exists() and not runtime_db.exists():
+            shutil.copyfile(bundled_db, runtime_db)
+        elif not runtime_db.exists():
+            from .db_bootstrap import initialize_sqlite_database
+
+            initialize_sqlite_database(runtime_db)
+        return runtime_db
+    return bundled_db
 
 
 # Quick-start development settings - unsuitable for production
@@ -76,7 +93,7 @@ WSGI_APPLICATION = 'shopsite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'shop.db',
+        'NAME': _database_path(),
     }
 }
 
