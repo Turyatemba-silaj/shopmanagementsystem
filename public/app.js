@@ -138,7 +138,9 @@ async function api(path, options = {}) {
     } catch (_error) {
       data = {};
     }
-    throw new Error(data.error || text.slice(0, 160) || `Request failed (${res.status})`);
+    const error = new Error(data.error || text.slice(0, 160) || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
   }
   return res.status === 204 ? null : res.json();
 }
@@ -1947,8 +1949,21 @@ async function render() {
   try {
     const publicSections = new Set(["marketplace", "cart", "login"]);
     if (!state.staff && !publicSections.has(state.section)) state.section = "marketplace";
-    if (state.staff) await loadOptions();
     setNav();
+    if (state.staff) {
+      try {
+        await loadOptions();
+      } catch (error) {
+        if (error.status === 401) {
+          localStorage.removeItem("staffAuth");
+          state.staff = null;
+          state.section = "login";
+          setNav();
+        } else {
+          throw error;
+        }
+      }
+    }
     if (state.section === "login") return renderLogin();
     if (state.section === "home") return renderHome();
     if (state.section === "marketplace") return renderMarketplace();
