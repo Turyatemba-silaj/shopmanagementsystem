@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-o7y6h(+id8c_@uhaw2gj(!1p*szx5))vfxo(pa(x6@%#gdll-5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver","shopmanagementsystem-ten.vercel.app"]
 
 
 # Application definition
