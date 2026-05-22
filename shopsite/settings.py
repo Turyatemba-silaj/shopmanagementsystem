@@ -20,7 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def _database_path():
-    bundled_db = BASE_DIR / 'shop.db'
+    seed_db = BASE_DIR / 'data' / 'shop_seed.db'
+    bundled_db = seed_db if seed_db.exists() else BASE_DIR / 'shop.db'
     if os.environ.get('VERCEL'):
         runtime_db = Path(tempfile.gettempdir()) / 'shop.db'
         if bundled_db.exists() and not runtime_db.exists():
