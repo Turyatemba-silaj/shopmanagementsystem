@@ -657,7 +657,7 @@ def login(request):
     try:
         data = _body(request)
         _require(data, ["username", "password"])
-        user = User.objects.filter(username=data["username"], password=data["password"]).first()
+        user = User.objects.filter(username__iexact=str(data["username"]).strip(), password=data["password"]).first()
         if not user:
             return _error("Invalid username or password", 401)
         payload = _staff_payload(user)
@@ -823,6 +823,10 @@ def crud_detail(request, table, pk):
     if request.method == "DELETE":
         if table == "expenses":
             Payroll.objects.filter(expense_id=pk).delete()
+        if table == "users":
+            ActivityLog.objects.filter(user_id=pk).delete()
+            Payroll.objects.filter(user_id=pk).delete()
+            Expense.objects.filter(user_id=pk).delete()
         cfg["model"].objects.filter(**{cfg["pk"]: pk}).delete()
         _log_activity(request, f"delete {table}", f"Deleted {table} record #{pk}")
         return HttpResponse(status=204)

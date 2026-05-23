@@ -457,7 +457,7 @@ function scheduleDailySalesReport() {
 app.post("/api/login", (req, res, next) => {
   try {
     requireFields(req.body, ["username", "password"]);
-    const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE username = ? AND password = ?").get(req.body.username, req.body.password);
+    const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE username = ? COLLATE NOCASE AND password = ?").get(String(req.body.username).trim(), req.body.password);
     if (!user) return res.status(401).json({ error: "Invalid username or password" });
     res.json({ token: authToken(user), user });
   } catch (err) {
@@ -602,6 +602,11 @@ for (const [table, fields] of Object.entries(tables)) {
   });
   app.delete(`/api/${table}/:id`, (req, res, next) => {
     try {
+      if (table === "users") {
+        db.prepare("DELETE FROM activity_logs WHERE user_id = ?").run(req.params.id);
+        db.prepare("DELETE FROM payrolls WHERE user_id = ?").run(req.params.id);
+        db.prepare("DELETE FROM expenses WHERE user_id = ?").run(req.params.id);
+      }
       db.prepare(`DELETE FROM ${table} WHERE ${id} = ?`).run(req.params.id);
       res.sendStatus(204);
     } catch (err) {

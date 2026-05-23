@@ -24,8 +24,13 @@ def _database_path():
     bundled_db = seed_db if seed_db.exists() else BASE_DIR / 'shop.db'
     if os.environ.get('VERCEL'):
         runtime_db = Path(tempfile.gettempdir()) / 'shop.db'
-        if bundled_db.exists() and not runtime_db.exists():
-            shutil.copyfile(bundled_db, runtime_db)
+        marker = Path(tempfile.gettempdir()) / 'shop.db.source'
+        if bundled_db.exists():
+            source_stamp = f"{bundled_db.stat().st_size}:{bundled_db.stat().st_mtime_ns}"
+            current_stamp = marker.read_text() if marker.exists() else ""
+            if not runtime_db.exists() or current_stamp != source_stamp:
+                shutil.copyfile(bundled_db, runtime_db)
+                marker.write_text(source_stamp)
         elif not runtime_db.exists():
             from .db_bootstrap import initialize_sqlite_database
 
@@ -43,7 +48,13 @@ SECRET_KEY = 'django-insecure-o7y6h(+id8c_@uhaw2gj(!1p*szx5))vfxo(pa(x6@%#gdll-5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver","shopmanagementsystem-ten.vercel.app"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "testserver",
+    "shopmanagementsystem-ten.vercel.app",
+    ".vercel.app",
+]
 
 
 # Application definition

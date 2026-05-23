@@ -148,6 +148,11 @@ async function api(path, options = {}) {
     }
     const error = new Error(data.error || text.slice(0, 160) || `Request failed (${res.status})`);
     error.status = res.status;
+    if ([401, 403].includes(res.status) && !["login", "register", "forgot-password"].includes(path.split("?")[0])) {
+      localStorage.removeItem("staffAuth");
+      state.staff = null;
+      state.section = "login";
+    }
     throw error;
   }
   return res.status === 204 ? null : res.json();
