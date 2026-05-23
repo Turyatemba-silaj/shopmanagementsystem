@@ -599,13 +599,49 @@ function addToCart(product) {
   setNav();
 }
 
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Live location is not available on this device."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+  });
+}
+
+async function describeCustomerLocation(position) {
+  const { latitude, longitude, accuracy } = position.coords;
+  const lat = Number(latitude).toFixed(6);
+  const lng = Number(longitude).toFixed(6);
+  const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+  let place = "";
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+    if (res.ok) {
+      const data = await res.json();
+      place = data.display_name || "";
+    }
+  } catch (_error) {
+    place = "";
+  }
+  return [
+    place ? `Live location: ${place}` : "Live location shared by customer",
+    `Coordinates: ${lat}, ${lng}`,
+    `Accuracy: about ${Math.round(Number(accuracy || 0))} meters`,
+    `Map: ${mapsLink}`
+  ].join("\n");
+}
+
 async function renderCart() {
   $("#page-title").textContent = "Cart";
   $("#view").innerHTML = `
     <div class="split cart-layout">
       <section class="panel">
         <h3>Shopping cart</h3>
-        ${state.stockNotice ? `<div class="notice">${state.stockNotice}</div>` : ""}
         ${state.cart.length ? state.cart.map((item, index) => `
           <div class="cart-row">
             <div>
@@ -635,7 +671,13 @@ async function renderCart() {
           <label>Payment method<select name="payment_method"><option>cash on delivery</option><option>mobile money</option><option>card</option><option>bank</option></select></label>
           ${paymentReferenceFields({}, true)}
           <label>Delivery method<select name="delivery_method"><option>door delivery</option><option>pickup station</option><option>express delivery</option></select></label>
-          <label class="wide">Delivery address<textarea name="address" required></textarea></label>
+          <label class="wide location-field">Delivery location
+            <textarea name="address" required readonly placeholder="Use live location to share delivery position with the supplier"></textarea>
+          </label>
+          <div class="location-actions">
+            <button type="button" class="secondary" data-use-location>Use live location</button>
+            <span id="location-status">Location not shared yet.</span>
+          </div>
           <label class="wide">Notes<textarea name="notes"></textarea></label>
           <button type="submit">Place order</button>
         </form>
@@ -658,6 +700,28 @@ async function renderCart() {
     }
   };
   $("#view").onclick = (event) => {
+    if (event.target.dataset.useLocation !== undefined) {
+      const button = event.target;
+      const status = $("#location-status");
+      const address = $("#checkout-form textarea[name='address']");
+      button.disabled = true;
+      button.textContent = "Getting location...";
+      status.textContent = "Allow location access in the browser.";
+      getCurrentPosition()
+        .then(describeCustomerLocation)
+        .then((locationText) => {
+          address.value = locationText;
+          status.textContent = "Live location shared.";
+        })
+        .catch((error) => {
+          status.textContent = error.message || "Unable to get live location.";
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = "Use live location";
+        });
+      return;
+    }
     if (event.target.dataset.removeCart !== undefined) {
       state.cart.splice(Number(event.target.dataset.removeCart), 1);
       saveCart();
@@ -670,30 +734,34 @@ async function renderCart() {
     const submit = form.querySelector("button[type='submit']");
     form.querySelector(".notice")?.remove();
     if (!state.cart.length) {
-      form.insertAdjacentHTML("afterbegin", `<div class="notice">Add at least one product to the cart before placing an order.</div>`);
+      $("#location-status").textContent = "Add at least one product to the cart before placing an order.";
       return;
     }
     const overStock = state.cart.find((item) => Number(item.quantity || 0) > Number(item.stock_quantity || 0));
     if (overStock) {
-      form.insertAdjacentHTML("afterbegin", `<div class="notice">Stock notification: ${overStock.product_name} has only ${overStock.stock_quantity} available.</div>`);
+      $("#location-status").textContent = `${overStock.product_name} has only ${overStock.stock_quantity} available.`;
+      return;
+    }
+    if (!form.address.value.trim()) {
+      $("#location-status").textContent = "Use live location before placing the order.";
       return;
     }
     if (form.payment_method.value === "mobile money") {
       const payable = transactionTotals(cartTotal()).total;
       if (!form.mobile_number.value) {
-        formNotice(form, "Enter the mobile money number.");
+        $("#location-status").textContent = "Enter the mobile money number.";
         return;
       }
       if (!/^\d{4,6}$/.test(form.mobile_pin.value || "")) {
-        formNotice(form, "Enter a valid 4 to 6 digit mobile money PIN.");
+        $("#location-status").textContent = "Enter a valid 4 to 6 digit mobile money PIN.";
         return;
       }
       if (form.mobile_balance.value === "") {
-        formNotice(form, "Enter the mobile money account balance.");
+        $("#location-status").textContent = "Enter the mobile money account balance.";
         return;
       }
       if (Number(form.mobile_balance.value) < payable) {
-        formNotice(form, `Insufficient mobile money balance. Available UGX ${money(form.mobile_balance.value)}, required UGX ${money(payable)}.`);
+        $("#location-status").textContent = `Insufficient mobile money balance. Available UGX ${money(form.mobile_balance.value)}, required UGX ${money(payable)}.`;
         return;
       }
     }
@@ -714,7 +782,7 @@ async function renderCart() {
       };
       setNav();
     } catch (error) {
-      form.insertAdjacentHTML("afterbegin", `<div class="notice">${error.message}</div>`);
+      $("#location-status").textContent = error.message;
       submit.disabled = false;
       submit.textContent = "Place order";
     }

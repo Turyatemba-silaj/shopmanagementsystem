@@ -1447,6 +1447,28 @@ td.num {
   font-size: 18px;
 }
 
+.location-field textarea {
+  min-height: 112px;
+  background: #f8fafc;
+}
+
+.location-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.location-actions button {
+  flex: 0 0 auto;
+}
+
+.location-actions span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .order-success {
   max-width: 520px;
 }
@@ -1484,6 +1506,11 @@ td.num {
 
   .line-row, .cart-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .location-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .shop-hero {
