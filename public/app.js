@@ -536,7 +536,7 @@ async function renderLogin() {
       <div class="panel auth-panel">
         <div class="auth-heading">
           <div>
-            <h3>Store</h3>
+            <h3>Business Portal</h3>
             <p>Start your session</p>
           </div>
           ${titles[mode] ? `<span>${titles[mode]}</span>` : ""}
