@@ -182,7 +182,7 @@ function marketplaceSidebar(data) {
       }).join("")}
     </div>
     <div class="market-staff-links">
-      <button type="button" data-section="cart">Cart (${cartCount()})</button>
+      ${cartCount() ? `<button type="button" data-section="cart">Cart (${cartCount()})</button>` : ""}
       <button type="button" class="secondary" data-section="${state.staff ? "home" : "login"}">${state.staff ? "Dashboard" : "Login"}</button>
     </div>`;
 }
@@ -281,8 +281,8 @@ function setNav() {
   const publicSections = new Set(["marketplace", "cart", "login"]);
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
-  $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "Customer shop" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Access" : "Management System";
+  $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "" : "Online Shop";
+  $(".sidebar h1").textContent = state.section === "marketplace" ? "" : state.section === "login" ? "Access" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -371,7 +371,7 @@ async function renderMarketplace() {
         <div class="market-hero-card">
           <span>Cart total</span>
           <strong>UGX ${money(totals.total)}</strong>
-          <button type="button" data-section="cart">Checkout</button>
+          ${cartCount() ? `<button type="button" data-section="cart">Checkout</button>` : ""}
         </div>
       </section>
       <section class="market-tools">
@@ -387,9 +387,9 @@ async function renderMarketplace() {
             ["stock", "Most available"]
           ].map(([value, label]) => `<option value="${value}" ${state.storefront.sort === value ? "selected" : ""}>${label}</option>`).join("")}
         </select>
-        <button type="button" data-section="cart">View cart (${cartCount()})</button>
+        ${cartCount() ? `<button type="button" data-section="cart">View cart (${cartCount()})</button>` : ""}
       </section>
-      <section class="market-content">
+      <section class="market-content ${state.cart.length ? "has-cart" : ""}">
         <div>
           <section class="market-section-heading">
             <div>
@@ -423,7 +423,7 @@ async function renderMarketplace() {
             `).join("") || `<p class="muted">No matching products.</p>`}
           </section>
         </div>
-        <aside class="market-cart">
+        ${state.cart.length ? `<aside class="market-cart">
           <div>
             <span>Current order</span>
             <strong>${cartCount()} item${cartCount() === 1 ? "" : "s"}</strong>
@@ -440,7 +440,7 @@ async function renderMarketplace() {
             <strong>UGX ${money(totals.total)}</strong>
           </div>
           <button type="button" data-section="cart" ${state.cart.length ? "" : "disabled"}>Checkout</button>
-        </aside>
+        </aside>` : ""}
       </section>
     </section>
     ${viewedProduct ? customerProductView(viewedProduct) : ""}`;
