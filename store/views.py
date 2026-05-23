@@ -621,6 +621,29 @@ def sale_documents(request):
     return JsonResponse(_rows(rows), safe=False)
 
 
+def sale_document_detail(request, pk):
+    denied = _require_staff(request)
+    if denied:
+        return denied
+    document = SaleDocument.objects.filter(document_id=pk).values(
+        "document_id",
+        "sale_id",
+        "document_type",
+        "document_number",
+        "customer_name",
+        "total_amount",
+        "document_data",
+        "created_at",
+    ).first()
+    if not document:
+        return _error("Document not found", 404)
+    try:
+        document["document_data"] = json.loads(document["document_data"] or "{}")
+    except json.JSONDecodeError:
+        document["document_data"] = {}
+    return JsonResponse(document)
+
+
 @csrf_exempt
 @require_http_methods(["GET", "PUT"])
 def shop_settings(request):

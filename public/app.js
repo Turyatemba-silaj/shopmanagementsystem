@@ -2029,13 +2029,16 @@ function updateWalkinSummary() {
 }
 
 function receiptHtml(receipt) {
+  const title = receipt.document_type === "invoice" ? "Sales Invoice" : "Sales Receipt";
+  const number = receipt.document_number || `Sale #${receipt.sale_id}`;
+  const customer = receipt.customer?.name || receipt.customer_name || "Customer";
   return `
     <section class="print-receipt">
-      <h1>Shop Receipt</h1>
-      <p>Sale #${receipt.sale_id}</p>
+      <h1>${title}</h1>
+      <p>${number}</p>
       <p>${receipt.sale_date} - ${receipt.payment_method}</p>
       ${receipt.payment_reference ? `<p>${receipt.payment_reference}</p>` : ""}
-      <p>${receipt.customer_name}</p>
+      <p>${customer}</p>
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
         <tbody>
@@ -2075,6 +2078,15 @@ function printReceipt(receipt, title = "Print Receipt") {
   win.document.close();
   win.focus();
   win.print();
+}
+
+async function printSaleDocument(documentId, output = "print") {
+  const document = await api(`sale-documents/${documentId}`);
+  const data = document.document_data || {};
+  const title = output === "pdf"
+    ? `Save ${document.document_type === "invoice" ? "Invoice" : "Receipt"} as PDF`
+    : `Print ${document.document_type === "invoice" ? "Invoice" : "Receipt"}`;
+  printReceipt({ ...data, document_type: document.document_type, document_number: document.document_number }, title);
 }
 
 function bindLines(type) {
@@ -2296,16 +2308,38 @@ async function renderSaleDocuments() {
       <article class="card"><span>Receipts</span><strong>${money(rows.filter((row) => row.document_type === "receipt").length)}</strong></article>
     </section>
     <section class="panel">
-      ${table(rows.map((row) => ({
-        document_id: row.document_id,
-        sale_id: row.sale_id,
-        type: row.document_type,
-        document_number: row.document_number,
-        customer_name: row.customer_name,
-        total_amount: row.total_amount,
-        created_at: row.created_at,
-      })), ["document_id", "sale_id", "type", "document_number", "customer_name", "total_amount", "created_at"], false)}
+      <table>
+        <thead><tr><th>No.</th><th>Sale</th><th>Type</th><th>Document number</th><th>Customer</th><th>Total</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${rows.map((row, index) => `
+            <tr>
+              <td class="num">${index + 1}</td>
+              <td class="num">${row.sale_id}</td>
+              <td>${row.document_type}</td>
+              <td>${row.document_number}</td>
+              <td>${row.customer_name}</td>
+              <td class="num">UGX ${money(row.total_amount)}</td>
+              <td>${row.created_at || ""}</td>
+              <td class="row-actions">
+                <button type="button" data-print-document="${row.document_id}">Print</button>
+                <button type="button" class="secondary" data-pdf-document="${row.document_id}">PDF</button>
+              </td>
+            </tr>
+          `).join("") || `<tr><td colspan="8">No stored documents yet.</td></tr>`}
+        </tbody>
+      </table>
     </section>`;
+  $("#view").onclick = async (event) => {
+    const printButton = event.target.closest("[data-print-document]");
+    if (printButton) {
+      await printSaleDocument(printButton.dataset.printDocument, "print");
+      return;
+    }
+    const pdfButton = event.target.closest("[data-pdf-document]");
+    if (pdfButton) {
+      await printSaleDocument(pdfButton.dataset.pdfDocument, "pdf");
+    }
+  };
 }
 
 async function renderShopSettings() {

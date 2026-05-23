@@ -617,6 +617,16 @@ app.get("/api/sale-documents", (req, res) => {
   `).all());
 });
 
+app.get("/api/sale-documents/:id", (req, res) => {
+  const document = db.prepare(`
+    SELECT document_id, sale_id, document_type, document_number, customer_name, total_amount, document_data, created_at
+    FROM sale_documents
+    WHERE document_id = ?
+  `).get(req.params.id);
+  if (!document) return res.status(404).json({ error: "Document not found" });
+  res.json({ ...document, document_data: JSON.parse(document.document_data || "{}") });
+});
+
 app.get("/api/dashboard", (req, res) => {
   const revenue = db.prepare("SELECT COALESCE(SUM(total_amount),0) AS v FROM sales").get().v;
   const purchaseCost = db.prepare("SELECT COALESCE(SUM(total_amount),0) AS v FROM purchases").get().v;
