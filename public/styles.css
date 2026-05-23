@@ -281,7 +281,9 @@ button:disabled {
 
 .home-slide {
   opacity: 0;
-  background-size: cover;
+  background-color: #b83280;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
   animation-name: homeCategorySlide;
   animation-timing-function: ease-in-out;
