@@ -87,7 +87,7 @@ let state = {
   options: {},
   staff: JSON.parse(localStorage.getItem("staffAuth") || "null"),
   authMode: "login",
-  storefront: { q: "", category: "" },
+  storefront: { q: "", category: "", sort: "featured" },
   cart: JSON.parse(localStorage.getItem("shopCart") || "[]"),
   editing: {},
   dashboardPeriod: "monthly",
@@ -232,60 +232,125 @@ async function renderMarketplace() {
   if (state.storefront.q) params.set("q", state.storefront.q);
   if (state.storefront.category) params.set("category", state.storefront.category);
   const data = await api(`storefront?${params.toString()}`);
+  const selectedCategory = data.categories.find((category) => String(category.category_id) === String(state.storefront.category));
+  const visibleProducts = data.products.slice().sort((a, b) => {
+    if (state.storefront.sort === "price-low") return Number(a.selling_price || 0) - Number(b.selling_price || 0);
+    if (state.storefront.sort === "price-high") return Number(b.selling_price || 0) - Number(a.selling_price || 0);
+    if (state.storefront.sort === "stock") return Number(b.stock_quantity || 0) - Number(a.stock_quantity || 0);
+    return Number(a.product_id || 0) - Number(b.product_id || 0);
+  });
+  const cartPreview = state.cart.slice(0, 3);
+  const totals = transactionTotals(cartTotal());
   $("#view").innerHTML = `
-    <section class="shop-hero">
-      <div>
-        <p class="eyebrow">Online shopping marketplace</p>
-        <h3>Discover great products, fill your cart, and order for doorstep delivery.</h3>
-      </div>
-      <strong>${cartCount()} items</strong>
-    </section>
-    <section class="market-tools">
-      <input id="market-search" type="search" value="${state.storefront.q}" placeholder="Search products or barcode">
-      <select id="market-category">
-        <option value="">All categories</option>
-        ${data.categories.map((c) => `<option value="${c.category_id}" ${String(state.storefront.category) === String(c.category_id) ? "selected" : ""}>${c.category_name}</option>`).join("")}
-      </select>
-      <button type="button" data-section="cart">View cart</button>
-    </section>
-    <section class="flash-strip">
-      <div><strong>Flash Sales</strong></div>
-      ${state.staff ? `<div class="flash-actions">
-        <button type="button" data-section="products">Upload products</button>
-        <button type="button" data-section="products">Assign prices</button>
-        <button type="button" data-section="sales">Sell fast</button>
-      </div>` : `<span>Click a product to start an online order</span>`}
-    </section>
-    <section class="product-grid flash-grid">
-      ${data.products.map((p) => `
-        <article class="product-card">
-          <div class="discount-badge">Hot</div>
-          <button class="product-open" type="button" data-buy-now="${p.product_id}" aria-label="Order ${p.product_name}">
-            <div class="product-image">${productImage(p)}</div>
-            <div class="product-copy">
-              <span>${p.category_name}</span>
-              <h3>${p.product_name}</h3>
-              <strong>UGX ${money(p.selling_price)}</strong>
-              ${p.color ? colorSwatch(p.color) : ""}
-              ${p.specifications ? `<p>${p.specifications}</p>` : ""}
-              <p>${p.stock_quantity} ${p.unit} available</p>
-              <div class="stock-meter"><span style="width:${Math.min(100, Number(p.stock_quantity || 0) * 10)}%"></span></div>
+    <section class="market-shell">
+      <section class="market-hero">
+        <div class="market-hero-copy">
+          <p class="eyebrow">Online shopping marketplace</p>
+          <h3>Discover products, compare prices, and build an order in seconds.</h3>
+          <div class="market-stats">
+            <span>${visibleProducts.length} products</span>
+            <span>${selectedCategory?.category_name || "All categories"}</span>
+            <span>${cartCount()} in cart</span>
+          </div>
+        </div>
+        <div class="market-hero-card">
+          <span>Cart total</span>
+          <strong>UGX ${money(totals.total)}</strong>
+          <button type="button" data-section="cart">Checkout</button>
+        </div>
+      </section>
+      <section class="market-tools">
+        <div class="market-search">
+          <input id="market-search" type="search" value="${state.storefront.q}" placeholder="Search products or barcode">
+          ${state.storefront.q ? `<button type="button" data-clear-search>Clear</button>` : ""}
+        </div>
+        <select id="market-sort" aria-label="Sort products">
+          ${[
+            ["featured", "Featured"],
+            ["price-low", "Price: low to high"],
+            ["price-high", "Price: high to low"],
+            ["stock", "Most available"]
+          ].map(([value, label]) => `<option value="${value}" ${state.storefront.sort === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <button type="button" data-section="cart">View cart (${cartCount()})</button>
+      </section>
+      <section class="category-strip" aria-label="Product categories">
+        <button type="button" class="${state.storefront.category ? "" : "active"}" data-category="">All</button>
+        ${data.categories.map((c) => `<button type="button" class="${String(state.storefront.category) === String(c.category_id) ? "active" : ""}" data-category="${c.category_id}">${c.category_name}</button>`).join("")}
+      </section>
+      <section class="market-content">
+        <div>
+          <section class="market-section-heading">
+            <div>
+              <p class="eyebrow">${selectedCategory?.category_name || "Fresh picks"}</p>
+              <h3>${state.storefront.q ? `Results for "${state.storefront.q}"` : "Shop products"}</h3>
             </div>
-          </button>
-          <button type="button" data-add-cart="${p.product_id}">Add to cart</button>
-        </article>
-      `).join("") || `<p class="muted">No matching products.</p>`}
+            <span>${visibleProducts.length} item${visibleProducts.length === 1 ? "" : "s"}</span>
+          </section>
+          <section class="product-grid market-grid">
+            ${visibleProducts.map((p) => `
+              <article class="product-card market-card">
+                <div class="discount-badge">${Number(p.stock_quantity || 0) < 10 ? "Low" : "Hot"}</div>
+                <button class="product-open" type="button" data-buy-now="${p.product_id}" aria-label="Order ${p.product_name}">
+                  <div class="product-image">${productImage(p)}</div>
+                  <div class="product-copy">
+                    <span>${p.category_name}</span>
+                    <h3>${p.product_name}</h3>
+                    <strong>UGX ${money(p.selling_price)}</strong>
+                    ${p.color ? colorSwatch(p.color) : ""}
+                    ${p.specifications ? `<p>${p.specifications}</p>` : ""}
+                    <p>${p.stock_quantity} ${p.unit || "pcs"} available</p>
+                    <div class="stock-meter"><span style="width:${Math.min(100, Number(p.stock_quantity || 0) * 10)}%"></span></div>
+                  </div>
+                </button>
+                <div class="product-actions">
+                  <button type="button" data-add-cart="${p.product_id}">Add</button>
+                  <button type="button" class="secondary" data-buy-now="${p.product_id}">Buy now</button>
+                </div>
+              </article>
+            `).join("") || `<p class="muted">No matching products.</p>`}
+          </section>
+        </div>
+        <aside class="market-cart">
+          <div>
+            <span>Current order</span>
+            <strong>${cartCount()} item${cartCount() === 1 ? "" : "s"}</strong>
+          </div>
+          ${cartPreview.length ? cartPreview.map((item) => `
+            <div class="mini-cart-row">
+              <span>${item.product_name} x ${item.quantity}</span>
+              <strong>UGX ${money(Number(item.selling_price || 0) * Number(item.quantity || 0))}</strong>
+            </div>
+          `).join("") : `<p class="muted">Add products to start an order.</p>`}
+          ${state.cart.length > cartPreview.length ? `<p class="muted">+${state.cart.length - cartPreview.length} more item(s)</p>` : ""}
+          <div class="mini-cart-total">
+            <span>Total</span>
+            <strong>UGX ${money(totals.total)}</strong>
+          </div>
+          <button type="button" data-section="cart" ${state.cart.length ? "" : "disabled"}>Checkout</button>
+        </aside>
+      </section>
     </section>`;
   $("#market-search").oninput = (event) => {
     state.storefront.q = event.target.value;
     clearTimeout(state.searchTimer);
     state.searchTimer = setTimeout(render, 250);
   };
-  $("#market-category").onchange = (event) => {
-    state.storefront.category = event.target.value;
+  $("#market-sort").onchange = (event) => {
+    state.storefront.sort = event.target.value;
     render();
   };
   $("#view").onclick = (event) => {
+    if (event.target.dataset.clearSearch !== undefined) {
+      state.storefront.q = "";
+      render();
+      return;
+    }
+    if (event.target.dataset.category !== undefined) {
+      state.storefront.category = event.target.dataset.category;
+      render();
+      return;
+    }
     if (event.target.dataset.section) {
       state.section = event.target.dataset.section;
       render();
@@ -293,6 +358,7 @@ async function renderMarketplace() {
     if (event.target.dataset.addCart) {
       const product = data.products.find((p) => String(p.product_id) === event.target.dataset.addCart);
       addToCart(product);
+      renderMarketplace();
     }
     const buyNow = event.target.closest("[data-buy-now]");
     if (buyNow) {
