@@ -86,6 +86,90 @@ nav button:hover {
   color: white;
 }
 
+.marketplace-page .sidebar {
+  overflow: visible;
+}
+
+.marketplace-page nav {
+  align-content: start;
+}
+
+.market-sidebar-heading {
+  padding: 6px 4px 10px;
+}
+
+.market-sidebar-heading h3 {
+  color: white;
+  font-size: 20px;
+}
+
+.market-side-menu {
+  display: grid;
+  gap: 6px;
+}
+
+.market-side-item {
+  position: relative;
+}
+
+.market-side-item > button,
+.market-submenu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-side-item small,
+.market-submenu small {
+  color: #aecaed;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.market-submenu {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 10px);
+  z-index: 25;
+  width: min(280px, calc(100vw - 300px));
+  max-height: 360px;
+  overflow: auto;
+  display: none;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(220, 232, 248, 0.24);
+  border-radius: 8px;
+  background: #132b4e;
+  box-shadow: 0 18px 48px rgba(16, 35, 63, 0.3);
+}
+
+.market-side-item:hover .market-submenu,
+.market-side-item:focus-within .market-submenu {
+  display: grid;
+}
+
+.market-submenu button {
+  padding: 10px;
+  border: 1px solid rgba(220, 232, 248, 0.12);
+  border-radius: 6px;
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.market-submenu button:hover,
+.market-submenu button:focus-visible {
+  background: #1e3f6c;
+}
+
+.market-submenu p {
+  margin: 0;
+  padding: 10px;
+  color: #dce8f8;
+}
+
 main {
   min-width: 0;
   padding: 26px;
@@ -1414,6 +1498,14 @@ td.num {
 
   .market-cart {
     position: static;
+  }
+
+  .market-submenu {
+    position: static;
+    width: 100%;
+    max-height: 260px;
+    margin-top: 6px;
+    box-shadow: none;
   }
 
   .market-grid {

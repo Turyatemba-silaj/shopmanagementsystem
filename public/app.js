@@ -149,6 +149,42 @@ function customerProductView(product) {
     </div>`;
 }
 
+function marketplaceSidebar(data) {
+  const productsByCategory = data.products.reduce((groups, product) => {
+    const key = String(product.category_id);
+    groups[key] = groups[key] || [];
+    groups[key].push(product);
+    return groups;
+  }, {});
+  return `
+    <div class="market-sidebar-heading">
+      <p class="eyebrow">Shop categories</p>
+      <h3>Browse products</h3>
+    </div>
+    <button type="button" class="${state.storefront.category ? "" : "active"}" data-market-category="">All products</button>
+    <div class="market-side-menu">
+      ${data.categories.map((category) => {
+        const categoryProducts = productsByCategory[String(category.category_id)] || [];
+        return `
+          <div class="market-side-item">
+            <button type="button" class="${String(state.storefront.category) === String(category.category_id) ? "active" : ""}" data-market-category="${category.category_id}">
+              <span>${category.category_name}</span>
+              <small>${categoryProducts.length}</small>
+            </button>
+            <div class="market-submenu">
+              ${categoryProducts.length ? categoryProducts.map((product) => `
+                <button type="button" data-market-product="${product.product_id}">
+                  <span>${product.product_name}</span>
+                  <small>UGX ${money(product.selling_price)}</small>
+                </button>
+              `).join("") : `<p class="muted">No products yet.</p>`}
+            </div>
+          </div>`;
+      }).join("")}
+    </div>
+    <button type="button" data-section="cart">Cart (${cartCount()})</button>`;
+}
+
 function imageFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -220,6 +256,9 @@ async function loadOptions() {
 function setNav() {
   const publicSections = new Set(["marketplace", "cart", "login"]);
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
+  document.body.classList.toggle("marketplace-page", state.section === "marketplace");
+  $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "Customer shop" : "Online Shop";
+  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -260,6 +299,7 @@ async function renderMarketplace() {
   if (state.storefront.q) params.set("q", state.storefront.q);
   if (state.storefront.category) params.set("category", state.storefront.category);
   const data = await api(`storefront?${params.toString()}`);
+  const menuData = params.toString() ? await api("storefront") : data;
   const selectedCategory = data.categories.find((category) => String(category.category_id) === String(state.storefront.category));
   const visibleProducts = data.products.slice().sort((a, b) => {
     if (state.storefront.sort === "price-low") return Number(a.selling_price || 0) - Number(b.selling_price || 0);
@@ -267,9 +307,30 @@ async function renderMarketplace() {
     if (state.storefront.sort === "stock") return Number(b.stock_quantity || 0) - Number(a.stock_quantity || 0);
     return Number(a.product_id || 0) - Number(b.product_id || 0);
   });
-  const viewedProduct = data.products.find((p) => String(p.product_id) === String(state.storefront.viewProductId));
+  const viewedProduct = menuData.products.find((p) => String(p.product_id) === String(state.storefront.viewProductId));
   const cartPreview = state.cart.slice(0, 3);
   const totals = transactionTotals(cartTotal());
+  $("#nav").innerHTML = marketplaceSidebar(menuData);
+  $("#nav").onclick = (event) => {
+    if (event.target.dataset.section) {
+      state.section = event.target.dataset.section;
+      state.storefront.viewProductId = null;
+      render();
+      return;
+    }
+    const categoryButton = event.target.closest("[data-market-category]");
+    if (categoryButton) {
+      state.storefront.category = categoryButton.dataset.marketCategory;
+      state.storefront.viewProductId = null;
+      renderMarketplace();
+      return;
+    }
+    const productButton = event.target.closest("[data-market-product]");
+    if (productButton) {
+      state.storefront.viewProductId = productButton.dataset.marketProduct;
+      renderMarketplace();
+    }
+  };
   $("#view").innerHTML = `
     <section class="market-shell">
       <section class="market-hero">
