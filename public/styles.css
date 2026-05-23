@@ -170,6 +170,22 @@ nav button:hover {
   color: #dce8f8;
 }
 
+.market-staff-links {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(220, 232, 248, 0.16);
+}
+
+.market-staff-links button.secondary {
+  color: #dce8f8;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.market-staff-links button.secondary:hover {
+  background: #1e3f6c;
+}
+
 main {
   min-width: 0;
   padding: 26px;

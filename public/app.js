@@ -182,7 +182,10 @@ function marketplaceSidebar(data) {
           </div>`;
       }).join("")}
     </div>
-    <button type="button" data-section="cart">Cart (${cartCount()})</button>`;
+    <div class="market-staff-links">
+      <button type="button" data-section="cart">Cart (${cartCount()})</button>
+      <button type="button" class="secondary" data-section="${state.staff ? "home" : "login"}">${state.staff ? "Staff dashboard" : "Staff login"}</button>
+    </div>`;
 }
 
 function imageFileToDataUrl(file) {
@@ -312,8 +315,9 @@ async function renderMarketplace() {
   const totals = transactionTotals(cartTotal());
   $("#nav").innerHTML = marketplaceSidebar(menuData);
   $("#nav").onclick = (event) => {
-    if (event.target.dataset.section) {
-      state.section = event.target.dataset.section;
+    const sectionButton = event.target.closest("[data-section]");
+    if (sectionButton) {
+      state.section = sectionButton.dataset.section;
       state.storefront.viewProductId = null;
       render();
       return;
@@ -363,10 +367,6 @@ async function renderMarketplace() {
           ].map(([value, label]) => `<option value="${value}" ${state.storefront.sort === value ? "selected" : ""}>${label}</option>`).join("")}
         </select>
         <button type="button" data-section="cart">View cart (${cartCount()})</button>
-      </section>
-      <section class="category-strip" aria-label="Product categories">
-        <button type="button" class="${state.storefront.category ? "" : "active"}" data-category="">All</button>
-        ${data.categories.map((c) => `<button type="button" class="${String(state.storefront.category) === String(c.category_id) ? "active" : ""}" data-category="${c.category_id}">${c.category_name}</button>`).join("")}
       </section>
       <section class="market-content">
         <div>

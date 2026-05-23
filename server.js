@@ -191,6 +191,14 @@ CREATE TABLE IF NOT EXISTS payrolls (
   FOREIGN KEY (expense_id) REFERENCES expenses(expense_id),
   UNIQUE(user_id, period_month)
 );
+CREATE TABLE IF NOT EXISTS activity_logs (
+  log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
 `);
 
 const count = (table) => db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count;
@@ -296,6 +304,10 @@ function requireStaff(req, res, next) {
   if (!user) return res.status(401).json({ error: "Staff login required" });
   req.staff = user;
   next();
+}
+
+function logActivity(userId, action, details = "") {
+  db.prepare("INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)").run(userId || null, action, details);
 }
 
 function getProduct(id) {
@@ -459,6 +471,7 @@ app.post("/api/login", (req, res, next) => {
     requireFields(req.body, ["username", "password"]);
     const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE username = ? COLLATE NOCASE AND password = ?").get(String(req.body.username).trim(), req.body.password);
     if (!user) return res.status(401).json({ error: "Invalid username or password" });
+    logActivity(user.user_id, "login", "Staff logged in");
     res.json({ token: authToken(user), user });
   } catch (err) {
     next(err);
@@ -479,6 +492,7 @@ app.post("/api/register", (req, res, next) => {
       req.body.role || "cashier"
     );
     const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE user_id = ?").get(result.lastInsertRowid);
+    logActivity(user.user_id, "register", "Staff account created");
     res.status(201).json({ token: authToken(user), user });
   } catch (err) {
     if (/UNIQUE constraint failed: users\.username/i.test(err.message)) err.message = "That username is already taken.";
@@ -518,6 +532,15 @@ app.get("/api/options", (req, res) => {
     users: db.prepare("SELECT user_id AS id, full_name AS name, monthly_salary FROM users ORDER BY full_name").all(),
     products: db.prepare("SELECT product_id AS id, product_name AS name, selling_price, buying_price, stock_quantity FROM products ORDER BY product_id").all()
   });
+});
+
+app.get("/api/activity-logs", (req, res) => {
+  res.json(db.prepare(`
+    SELECT l.log_id, l.user_id, u.full_name AS staff_name, u.role, l.action, l.details, l.created_at
+    FROM activity_logs l
+    LEFT JOIN users u ON u.user_id = l.user_id
+    ORDER BY l.log_id
+  `).all());
 });
 
 app.get("/api/dashboard", (req, res) => {
