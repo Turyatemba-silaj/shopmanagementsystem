@@ -538,8 +538,8 @@ async function renderLogin() {
         </div>
         <form id="auth-form" class="auth-form" novalidate>
           ${mode === "login" ? `
-            <label>Username<span class="auth-input"><i aria-hidden="true">@</i><input name="username" type="text" autocomplete="username"></span></label>
-            <label>Password<span class="auth-input"><i aria-hidden="true">#</i><input name="password" type="password" autocomplete="current-password"></span></label>
+            <label>Username<span class="auth-field"><i aria-hidden="true">&#128100;</i><input name="username" type="text" autocomplete="username"></span></label>
+            <label>Password<span class="auth-field"><i aria-hidden="true">&#128274;</i><input name="password" type="password" autocomplete="current-password"></span></label>
             <button type="submit">Login</button>
           ` : ""}
           ${mode === "register" ? `

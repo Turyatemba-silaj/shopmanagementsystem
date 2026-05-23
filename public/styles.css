@@ -520,34 +520,31 @@ button:disabled {
   grid-template-columns: 1fr;
 }
 
-.auth-input {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: white;
-  overflow: hidden;
+.auth-field {
+  position: relative;
+  display: block;
 }
 
-.auth-input i {
-  display: grid;
-  place-items: center;
-  align-self: stretch;
-  color: white;
-  background: var(--nav);
+.auth-field i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nav);
   font-style: normal;
-  font-weight: 900;
+  font-size: 16px;
+  line-height: 1;
+  pointer-events: none;
 }
 
-.auth-input input {
-  border: 0;
-  border-radius: 0;
+.auth-field input {
+  padding-left: 42px;
 }
 
-.auth-input:focus-within {
+.auth-field input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+  outline: 0;
 }
 
 form {
