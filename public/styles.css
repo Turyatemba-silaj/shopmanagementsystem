@@ -4,9 +4,9 @@
   --line: #dbe2ea;
   --panel: #ffffff;
   --wash: #f4f7fa;
-  --nav: #10233f;
-  --accent: #f68b1e;
-  --accent-strong: #d66f00;
+  --nav: #b83280;
+  --accent: #14b8a6;
+  --accent-strong: #0f766e;
   --good: #16835a;
   --warn: #b45309;
   --bad: #b42318;
@@ -958,7 +958,7 @@ td.num {
   padding: 14px 18px;
   color: white;
   background: #c81e12;
-  border-top: 8px solid #ff9f0a;
+  border-top: 8px solid #14b8a6;
   border-radius: 8px 8px 0 0;
 }
 
@@ -1010,7 +1010,7 @@ td.num {
 .flash-grid {
   gap: 10px;
   padding: 10px;
-  background: #ff9f0a;
+  background: #14b8a6;
   border-radius: 0 0 8px 8px;
 }
 
@@ -1076,7 +1076,7 @@ td.num {
   z-index: 1;
   padding: 5px 8px;
   background: white;
-  color: #f97316;
+  color: var(--accent-strong);
   border-radius: 4px;
   font-size: 12px;
   font-weight: 800;
@@ -1143,7 +1143,7 @@ td.num {
   display: block;
   height: 100%;
   min-width: 12%;
-  background: #fb8500;
+  background: var(--accent);
 }
 
 .product-card button {
