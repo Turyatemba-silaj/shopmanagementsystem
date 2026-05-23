@@ -282,7 +282,7 @@ function setNav() {
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
   $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "Customer shop" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Login" : "Management System";
+  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Access" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -514,7 +514,7 @@ async function renderMarketplace() {
 }
 
 async function renderLogin() {
-  $("#page-title").textContent = "Login";
+  $("#page-title").textContent = "Access";
   const mode = state.authMode || "login";
   const titles = {
     login: "",
@@ -527,12 +527,12 @@ async function renderLogin() {
         <div class="auth-heading">
           <div>
             <h3>Management System</h3>
-            <p>Login to start your session</p>
+            <p>Start your session</p>
           </div>
           ${titles[mode] ? `<span>${titles[mode]}</span>` : ""}
         </div>
         <div class="auth-tabs">
-          <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Login</button>
+          <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Access</button>
           <button type="button" class="${mode === "register" ? "active" : ""}" data-auth-mode="register">Create account</button>
           <button type="button" class="${mode === "forgot" ? "active" : ""}" data-auth-mode="forgot">Forgot password</button>
         </div>
@@ -540,7 +540,7 @@ async function renderLogin() {
           ${mode === "login" ? `
             <label>Username<span class="auth-field"><i aria-hidden="true">&#128100;</i><input name="username" type="text" autocomplete="username"></span></label>
             <label>Password<span class="auth-field"><i aria-hidden="true">&#128274;</i><input name="password" type="password" autocomplete="current-password"></span></label>
-            <button type="submit">Login</button>
+            <button type="submit">Start session</button>
           ` : ""}
           ${mode === "register" ? `
             <label>Full name<input name="full_name" type="text" autocomplete="name"></label>
@@ -589,7 +589,7 @@ async function renderLogin() {
       return;
     }
     submit.disabled = true;
-    submit.textContent = mode === "login" ? "Logging in..." : mode === "register" ? "Creating account..." : "Resetting password...";
+    submit.textContent = mode === "login" ? "Starting..." : mode === "register" ? "Creating account..." : "Resetting password...";
     try {
       if (mode === "forgot") {
         await api("forgot-password", { method: "POST", body: JSON.stringify(body) });
@@ -608,7 +608,7 @@ async function renderLogin() {
     } catch (error) {
       formNotice(form, error.message);
       submit.disabled = false;
-      submit.textContent = mode === "login" ? "Login" : mode === "register" ? "Create account" : "Reset password";
+      submit.textContent = mode === "login" ? "Start session" : mode === "register" ? "Create account" : "Reset password";
     }
   };
 }
