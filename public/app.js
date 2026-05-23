@@ -187,6 +187,28 @@ function marketplaceSidebar(data) {
     </div>`;
 }
 
+function homeCategorySlides(products) {
+  const groups = products.reduce((map, product) => {
+    const category = product.category_name || "Marketplace";
+    if (!map.has(category)) map.set(category, []);
+    map.get(category).push(product);
+    return map;
+  }, new Map());
+  const entries = Array.from(groups.entries());
+  const slideSource = entries.length ? entries : [["Marketplace", []]];
+  const duration = Math.max(slideSource.length * 5, 15);
+  return slideSource.map(([category, items], index) => {
+    const image = items.find((product) => product.product_image)?.product_image
+      || `https://source.unsplash.com/1400x700/?${encodeURIComponent(category)},shopping,product`;
+    const count = items.length;
+    return `
+      <div class="home-slide" style="background-image:url('${image}'); animation-duration:${duration}s; animation-delay:-${index * 5}s">
+        <span>${category}</span>
+        <strong>${count || "Many"} product${count === 1 ? "" : "s"}</strong>
+      </div>`;
+  }).join("");
+}
+
 function imageFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1317,7 +1339,10 @@ async function renderHome() {
   const lowStockCount = products.filter((product) => Number(product.stock_quantity || 0) < 10).length;
   $("#view").innerHTML = `
     <section class="home-hero">
-      <div>
+      <div class="home-slider" aria-hidden="true">
+        ${homeCategorySlides(products)}
+      </div>
+      <div class="home-hero-copy">
         <p class="eyebrow">Online Shop</p>
         <h3>Run sales, stock, orders, and reports from one workspace.</h3>
       </div>

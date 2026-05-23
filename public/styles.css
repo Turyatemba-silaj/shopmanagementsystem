@@ -252,20 +252,69 @@ button:disabled {
 }
 
 .home-hero {
+  position: relative;
+  overflow: hidden;
   min-height: 260px;
   margin-bottom: 18px;
   padding: 28px;
   border-radius: 8px;
   color: white;
-  background:
-    linear-gradient(rgba(16, 35, 63, 0.08), rgba(16, 35, 63, 0.34)),
-    url("home-supermarket.webp");
-  background-size: cover;
-  background-position: center;
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 18px;
+}
+
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, rgba(16, 35, 63, 0.82), rgba(16, 35, 63, 0.34));
+}
+
+.home-slider,
+.home-slide {
+  position: absolute;
+  inset: 0;
+}
+
+.home-slide {
+  opacity: 0;
+  background-size: cover;
+  background-position: center;
+  animation-name: homeCategorySlide;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.home-slide span,
+.home-slide strong {
+  position: absolute;
+  right: 24px;
+  z-index: 2;
+  padding: 8px 10px;
+  border-radius: 999px;
+  color: white;
+  background: rgba(16, 35, 63, 0.62);
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+}
+
+.home-slide span {
+  top: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.home-slide strong {
+  top: 58px;
+}
+
+.home-hero-copy,
+.home-actions {
+  position: relative;
+  z-index: 2;
 }
 
 .home-hero h3 {
@@ -273,6 +322,34 @@ button:disabled {
   font-size: 30px;
   line-height: 1.2;
   text-shadow: 0 2px 12px rgba(16, 35, 63, 0.72);
+}
+
+@keyframes homeCategorySlide {
+  0% {
+    opacity: 0;
+    transform: scale(1.04) translateX(24px);
+  }
+  8%,
+  32% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+  42%,
+  100% {
+    opacity: 0;
+    transform: scale(1.02) translateX(-24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-slide {
+    animation: none;
+  }
+
+  .home-slide:first-child {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .home-actions,
