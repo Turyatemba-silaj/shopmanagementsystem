@@ -449,6 +449,7 @@ button:disabled {
 }
 
 .auth-panel {
+  position: relative;
   width: min(100%, 440px);
   margin: 0;
   padding: 22px;
@@ -457,14 +458,16 @@ button:disabled {
 .auth-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   margin-bottom: 14px;
+  text-align: center;
 }
 
 .auth-heading div {
   display: grid;
   gap: 4px;
+  justify-items: center;
 }
 
 .auth-heading h3 {
@@ -480,7 +483,9 @@ button:disabled {
 }
 
 .auth-heading > span {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 18px;
+  right: 18px;
   padding: 7px 10px;
   border-radius: 999px;
   color: var(--accent-strong);

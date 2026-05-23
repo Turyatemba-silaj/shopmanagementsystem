@@ -1,5 +1,5 @@
 const sections = [
-  ["login", "Staff Login"],
+  ["login", "Login"],
   ["home", "Home"],
   ["marketplace", "Marketplace"],
   ["cart", "Cart"],
@@ -183,7 +183,7 @@ function marketplaceSidebar(data) {
     </div>
     <div class="market-staff-links">
       <button type="button" data-section="cart">Cart (${cartCount()})</button>
-      <button type="button" class="secondary" data-section="${state.staff ? "home" : "login"}">${state.staff ? "Staff dashboard" : "Staff login"}</button>
+      <button type="button" class="secondary" data-section="${state.staff ? "home" : "login"}">${state.staff ? "Dashboard" : "Login"}</button>
     </div>`;
 }
 
@@ -282,7 +282,7 @@ function setNav() {
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
   $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "Customer shop" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Staff Access" : "Management System";
+  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Login" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -514,10 +514,10 @@ async function renderMarketplace() {
 }
 
 async function renderLogin() {
-  $("#page-title").textContent = "Staff Login";
+  $("#page-title").textContent = "Login";
   const mode = state.authMode || "login";
   const titles = {
-    login: "Staff access",
+    login: "",
     register: "Create account",
     forgot: "Reset password"
   };
@@ -529,7 +529,7 @@ async function renderLogin() {
             <h3>Management System</h3>
             <p>Login to start your session</p>
           </div>
-          <span>${titles[mode]}</span>
+          ${titles[mode] ? `<span>${titles[mode]}</span>` : ""}
         </div>
         <div class="auth-tabs">
           <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Login</button>
