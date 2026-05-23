@@ -87,7 +87,7 @@ let state = {
   options: {},
   staff: JSON.parse(localStorage.getItem("staffAuth") || "null"),
   authMode: "login",
-  storefront: { q: "", category: "", sort: "featured" },
+  storefront: { q: "", category: "", sort: "featured", viewProductId: null },
   cart: JSON.parse(localStorage.getItem("shopCart") || "[]"),
   editing: {},
   dashboardPeriod: "monthly",
@@ -120,6 +120,34 @@ const safeCssColor = (color) => {
 const colorSwatch = (color) => color
   ? `<span class="color-swatch"><i style="background:${safeCssColor(color)}"></i>${color}</span>`
   : "";
+
+function customerProductView(product) {
+  return `
+    <div class="product-view-backdrop" data-close-product-view>
+      <article class="product-view" role="dialog" aria-modal="true" aria-label="${product.product_name}">
+        <button class="product-view-close" type="button" data-close-product-view aria-label="Close">x</button>
+        <div class="product-view-media">${productImage(product)}</div>
+        <div class="product-view-copy">
+          <span class="eyebrow">${product.category_name || "Product"}</span>
+          <h3>${product.product_name}</h3>
+          <strong>UGX ${money(product.selling_price)}</strong>
+          <div class="product-view-meta">
+            ${product.color ? colorSwatch(product.color) : `<span class="muted">Color not specified</span>`}
+            <span>${product.stock_quantity} ${product.unit || "pcs"} available</span>
+          </div>
+          <section class="product-view-specs">
+            <h4>Specifications</h4>
+            <p>${product.specifications || "No specifications added yet."}</p>
+          </section>
+          <div class="stock-meter"><span style="width:${Math.min(100, Number(product.stock_quantity || 0) * 10)}%"></span></div>
+          <div class="product-view-actions">
+            <button type="button" data-modal-add-cart="${product.product_id}">Add to cart</button>
+            <button type="button" class="secondary" data-modal-buy-now="${product.product_id}">Buy now</button>
+          </div>
+        </div>
+      </article>
+    </div>`;
+}
 
 function imageFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -239,6 +267,7 @@ async function renderMarketplace() {
     if (state.storefront.sort === "stock") return Number(b.stock_quantity || 0) - Number(a.stock_quantity || 0);
     return Number(a.product_id || 0) - Number(b.product_id || 0);
   });
+  const viewedProduct = data.products.find((p) => String(p.product_id) === String(state.storefront.viewProductId));
   const cartPreview = state.cart.slice(0, 3);
   const totals = transactionTotals(cartTotal());
   $("#view").innerHTML = `
@@ -291,7 +320,7 @@ async function renderMarketplace() {
             ${visibleProducts.map((p) => `
               <article class="product-card market-card">
                 <div class="discount-badge">${Number(p.stock_quantity || 0) < 10 ? "Low" : "Hot"}</div>
-                <button class="product-open" type="button" data-buy-now="${p.product_id}" aria-label="Order ${p.product_name}">
+                <button class="product-open" type="button" data-view-product="${p.product_id}" aria-label="View ${p.product_name}">
                   <div class="product-image">${productImage(p)}</div>
                   <div class="product-copy">
                     <span>${p.category_name}</span>
@@ -304,6 +333,7 @@ async function renderMarketplace() {
                   </div>
                 </button>
                 <div class="product-actions">
+                  <button type="button" class="secondary" data-view-product="${p.product_id}">View</button>
                   <button type="button" data-add-cart="${p.product_id}">Add</button>
                   <button type="button" class="secondary" data-buy-now="${p.product_id}">Buy now</button>
                 </div>
@@ -330,7 +360,8 @@ async function renderMarketplace() {
           <button type="button" data-section="cart" ${state.cart.length ? "" : "disabled"}>Checkout</button>
         </aside>
       </section>
-    </section>`;
+    </section>
+    ${viewedProduct ? customerProductView(viewedProduct) : ""}`;
   $("#market-search").oninput = (event) => {
     state.storefront.q = event.target.value;
     clearTimeout(state.searchTimer);
@@ -343,22 +374,52 @@ async function renderMarketplace() {
   $("#view").onclick = (event) => {
     if (event.target.dataset.clearSearch !== undefined) {
       state.storefront.q = "";
+      state.storefront.viewProductId = null;
       render();
       return;
     }
     if (event.target.dataset.category !== undefined) {
       state.storefront.category = event.target.dataset.category;
+      state.storefront.viewProductId = null;
       render();
       return;
     }
     if (event.target.dataset.section) {
       state.section = event.target.dataset.section;
+      state.storefront.viewProductId = null;
       render();
+      return;
+    }
+    const viewProduct = event.target.closest("[data-view-product]");
+    if (viewProduct) {
+      state.storefront.viewProductId = viewProduct.dataset.viewProduct;
+      renderMarketplace();
+      return;
+    }
+    if (event.target.dataset.closeProductView !== undefined) {
+      state.storefront.viewProductId = null;
+      renderMarketplace();
+      return;
     }
     if (event.target.dataset.addCart) {
       const product = data.products.find((p) => String(p.product_id) === event.target.dataset.addCart);
       addToCart(product);
       renderMarketplace();
+      return;
+    }
+    if (event.target.dataset.modalAddCart) {
+      const product = data.products.find((p) => String(p.product_id) === event.target.dataset.modalAddCart);
+      addToCart(product);
+      renderMarketplace();
+      return;
+    }
+    if (event.target.dataset.modalBuyNow) {
+      const product = data.products.find((p) => String(p.product_id) === event.target.dataset.modalBuyNow);
+      addToCart(product);
+      state.storefront.viewProductId = null;
+      state.section = "cart";
+      render();
+      return;
     }
     const buyNow = event.target.closest("[data-buy-now]");
     if (buyNow) {
