@@ -318,6 +318,22 @@ function requireStaff(req, res, next) {
   next();
 }
 
+function canCashierAccess(req) {
+  const path = (req.originalUrl || "").split("?")[0].replace(/^\/api/, "") || req.path;
+  const method = req.method;
+  const allowedReads = ["/options", "/products", "/sales"];
+  if (method === "GET" && allowedReads.includes(path)) return true;
+  if (method === "POST" && ["/products", "/sales", "/walkin-transactions"].includes(path)) return true;
+  return false;
+}
+
+function requireRoleAccess(req, res, next) {
+  const role = String(req.staff?.role || "").toLowerCase();
+  if (role === "admin") return next();
+  if (role === "cashier" && canCashierAccess(req)) return next();
+  return res.status(403).json({ error: "Admin access required for this activity." });
+}
+
 function logActivity(userId, action, details = "") {
   db.prepare("INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)").run(userId || null, action, details);
 }
@@ -656,7 +672,7 @@ app.post("/api/register", (req, res, next) => {
       req.body.password,
       String(req.body.full_name).trim(),
       req.body.email || null,
-      req.body.role || "cashier"
+      "cashier"
     );
     const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE user_id = ?").get(result.lastInsertRowid);
     logActivity(user.user_id, "register", "Staff account created");
@@ -690,6 +706,11 @@ app.use("/api", (req, res, next) => {
     (req.method === "POST" && ["/login", "/register", "/forgot-password"].includes(req.path));
   if (publicRoute) return next();
   return requireStaff(req, res, next);
+});
+
+app.use("/api", (req, res, next) => {
+  if (["/login", "/register", "/forgot-password", "/storefront", "/checkout", "/orders"].includes(req.path)) return next();
+  return requireRoleAccess(req, res, next);
 });
 
 app.use("/api", (req, res, next) => {

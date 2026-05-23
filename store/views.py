@@ -439,10 +439,21 @@ def _require_staff(request):
     header = request.headers.get("Authorization", "")
     token = header.replace("Bearer ", "", 1)
     try:
-      signing.loads(token, salt=AUTH_SALT, max_age=8 * 60 * 60)
-      return None
+      payload = signing.loads(token, salt=AUTH_SALT, max_age=8 * 60 * 60)
     except signing.BadSignature:
       return _error("Staff login required", 401)
+    role = str(payload.get("role") or "").lower()
+    if role == "admin":
+        return None
+    path = request.path.replace("/api", "", 1)
+    cashier_reads = {"/options", "/products", "/sales"}
+    cashier_posts = {"/products", "/sales", "/walkin-transactions"}
+    if role == "cashier" and (
+        (request.method == "GET" and path in cashier_reads)
+        or (request.method == "POST" and path in cashier_posts)
+    ):
+        return None
+    return _error("Admin access required for this activity.", 403)
 
 
 def _current_staff(request):
@@ -882,7 +893,7 @@ def register(request):
             password=data["password"],
             full_name=str(data["full_name"]).strip(),
             email=data.get("email") or None,
-            role=data.get("role") or "cashier",
+            role="cashier",
             monthly_salary=0,
             salary_status="active",
             created_at=timezone.now(),

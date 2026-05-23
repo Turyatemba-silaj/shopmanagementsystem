@@ -22,6 +22,16 @@ const sections = [
   ["users", "Users"]
 ];
 
+const cashierSections = new Set(["products", "sales", "walkin"]);
+const defaultSectionForRole = (role) => String(role || "").toLowerCase() === "cashier" ? "sales" : "home";
+const isCashier = () => String(state.staff?.user?.role || "").toLowerCase() === "cashier";
+const canAccessSection = (id) => {
+  const publicSections = new Set(["marketplace", "cart", "login"]);
+  if (!state.staff) return publicSections.has(id);
+  if (isCashier()) return cashierSections.has(id);
+  return true;
+};
+
 const config = {
   categories: {
     title: "Categories",
@@ -184,7 +194,7 @@ function marketplaceSidebar(data) {
     </div>
     <div class="market-staff-links">
       ${cartCount() ? `<button type="button" data-section="cart">Cart (${cartCount()})</button>` : ""}
-      <button type="button" class="secondary" data-section="${state.staff ? "home" : "login"}">${state.staff ? "Dashboard" : "Login"}</button>
+      <button type="button" class="secondary" data-section="${state.staff ? defaultSectionForRole(state.staff.user?.role) : "login"}">${state.staff ? "Dashboard" : "Login"}</button>
     </div>`;
 }
 
@@ -279,8 +289,7 @@ async function loadOptions() {
 }
 
 function setNav() {
-  const publicSections = new Set(["marketplace", "cart", "login"]);
-  const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
+  const visibleSections = sections.filter(([id]) => canAccessSection(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
   $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "" : "Online Shop";
   $(".sidebar h1").textContent = state.section === "marketplace" || state.section === "login" ? "" : "Management System";
@@ -296,7 +305,7 @@ function setNav() {
       return;
     }
     if (event.target.dataset.section) {
-      state.section = event.target.dataset.section;
+      state.section = canAccessSection(event.target.dataset.section) ? event.target.dataset.section : defaultSectionForRole(state.staff?.user?.role);
       render();
     }
   };
@@ -603,7 +612,7 @@ async function renderLogin() {
         state.staff = auth;
         localStorage.setItem("staffAuth", JSON.stringify(auth));
         state.authMode = "login";
-        state.section = "home";
+        state.section = defaultSectionForRole(auth.user?.role);
         await render();
       }
     } catch (error) {
@@ -1603,6 +1612,7 @@ async function renderDashboard() {
 async function renderProducts() {
   $("#page-title").textContent = "Products";
   const rows = await api("products");
+  if (isCashier()) state.editing.products = null;
   const editing = state.editing.products;
   const flash = state.flash.products;
   state.flash.products = "";
@@ -1639,7 +1649,7 @@ async function renderProducts() {
       </section>
       <section class="panel">
         ${stockAlerts(rows)}
-        ${table(displayRows, ["product_id", "product_name", "category_name", "barcode", "product_color", "specifications", "buying_price", "selling_price", "stock_balance", "reorder_level", "unit", "stock_status"])}
+        ${table(displayRows, ["product_id", "product_name", "category_name", "barcode", "product_color", "specifications", "buying_price", "selling_price", "stock_balance", "reorder_level", "unit", "stock_status"], !isCashier())}
       </section>
     </div>`;
   $("#product-form").oninput = (event) => {
@@ -1690,6 +1700,7 @@ async function renderProducts() {
   $("#view").onclick = async (event) => {
     const editButton = event.target.closest("[data-edit]");
     const deleteButton = event.target.closest("[data-delete]");
+    if (isCashier()) return;
     if (editButton) {
       state.editing.products = rows.find((row) => String(row.product_id) === editButton.dataset.edit);
       await render();
@@ -1806,7 +1817,7 @@ async function renderPurchaseSale(type) {
         </form>
       </section>
       <section class="panel">
-        ${table(rows, isPurchase ? ["purchase_id", "supplier_name", "full_name", "purchase_date", "payment_status", "payment_method", "payment_amount", "invoice_number", "total_amount"] : ["sale_id", "customer_name", "full_name", "sale_date", "payment_method", "payment_reference", "discount", "tax", "total_amount"], "edit")}
+        ${table(rows, isPurchase ? ["purchase_id", "supplier_name", "full_name", "purchase_date", "payment_status", "payment_method", "payment_amount", "invoice_number", "total_amount"] : ["sale_id", "customer_name", "full_name", "sale_date", "payment_method", "payment_reference", "discount", "tax", "total_amount"], isCashier() && !isPurchase ? false : "edit")}
       </section>
     </div>`;
   setupPaymentReference($("#txn-form"));
@@ -2380,8 +2391,7 @@ async function renderShopSettings() {
 
 async function render() {
   try {
-    const publicSections = new Set(["marketplace", "cart", "login"]);
-    if (!state.staff && !publicSections.has(state.section)) state.section = "marketplace";
+    if (!canAccessSection(state.section)) state.section = state.staff ? defaultSectionForRole(state.staff.user?.role) : "marketplace";
     setNav();
     if (state.staff) {
       try {
