@@ -154,6 +154,22 @@ class SaleDetail(models.Model):
         db_table = "sale_details"
 
 
+class SaleDocument(models.Model):
+    document_id = models.AutoField(primary_key=True)
+    sale = models.ForeignKey(Sale, models.CASCADE, db_column="sale_id")
+    document_type = models.CharField(max_length=30)
+    document_number = models.CharField(max_length=80, unique=True)
+    customer_name = models.CharField(max_length=160)
+    total_amount = models.FloatField(default=0)
+    document_data = models.TextField()
+    created_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "sale_documents"
+        unique_together = (("sale", "document_type"),)
+
+
 class Expense(models.Model):
     expense_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, models.DO_NOTHING, db_column="user_id")

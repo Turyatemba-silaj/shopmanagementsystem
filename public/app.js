@@ -17,6 +17,7 @@ const sections = [
   ["payroll", "Payroll"],
   ["expenses", "Expenses"],
   ["activityLogs", "Activity Logs"],
+  ["saleDocuments", "Invoices & Receipts"],
   ["shopSettings", "Shop Settings"],
   ["users", "Users"]
 ];
@@ -2285,6 +2286,28 @@ async function renderActivityLogs() {
     </section>`;
 }
 
+async function renderSaleDocuments() {
+  $("#page-title").textContent = "Invoices & Receipts";
+  const rows = await api("sale-documents");
+  $("#view").innerHTML = `
+    <section class="grid cards">
+      <article class="card"><span>Stored documents</span><strong>${money(rows.length)}</strong></article>
+      <article class="card"><span>Invoices</span><strong>${money(rows.filter((row) => row.document_type === "invoice").length)}</strong></article>
+      <article class="card"><span>Receipts</span><strong>${money(rows.filter((row) => row.document_type === "receipt").length)}</strong></article>
+    </section>
+    <section class="panel">
+      ${table(rows.map((row) => ({
+        document_id: row.document_id,
+        sale_id: row.sale_id,
+        type: row.document_type,
+        document_number: row.document_number,
+        customer_name: row.customer_name,
+        total_amount: row.total_amount,
+        created_at: row.created_at,
+      })), ["document_id", "sale_id", "type", "document_number", "customer_name", "total_amount", "created_at"], false)}
+    </section>`;
+}
+
 async function renderShopSettings() {
   $("#page-title").textContent = "Shop Settings";
   const settings = await api("shop-settings");
@@ -2354,6 +2377,7 @@ async function render() {
     if (state.section === "payments") return renderPayments();
     if (state.section === "payroll") return renderPayroll();
     if (state.section === "activityLogs") return renderActivityLogs();
+    if (state.section === "saleDocuments") return renderSaleDocuments();
     if (state.section === "shopSettings") return renderShopSettings();
     if (state.section === "expenses") return renderExpenses();
     return renderCrud(state.section);

@@ -108,6 +108,18 @@ CREATE TABLE IF NOT EXISTS sale_details (
   FOREIGN KEY (sale_id) REFERENCES sales(sale_id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+CREATE TABLE IF NOT EXISTS sale_documents (
+  document_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sale_id INTEGER NOT NULL,
+  document_type TEXT NOT NULL,
+  document_number TEXT NOT NULL UNIQUE,
+  customer_name TEXT NOT NULL,
+  total_amount REAL NOT NULL DEFAULT 0,
+  document_data TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sale_id) REFERENCES sales(sale_id) ON DELETE CASCADE,
+  UNIQUE(sale_id, document_type)
+);
 CREATE TABLE IF NOT EXISTS expenses (
   expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -308,6 +320,60 @@ function requireStaff(req, res, next) {
 
 function logActivity(userId, action, details = "") {
   db.prepare("INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)").run(userId || null, action, details);
+}
+
+function createSaleDocuments(saleId, source = "sale") {
+  const sale = db.prepare(`
+    SELECT s.*, c.customer_name, c.phone, c.email, c.address, u.full_name AS staff_name
+    FROM sales s
+    JOIN customers c ON c.customer_id = s.customer_id
+    JOIN users u ON u.user_id = s.user_id
+    WHERE s.sale_id = ?
+  `).get(saleId);
+  if (!sale) return;
+  const items = db.prepare(`
+    SELECT p.product_name, sd.quantity, sd.selling_price, sd.subtotal
+    FROM sale_details sd
+    JOIN products p ON p.product_id = sd.product_id
+    WHERE sd.sale_id = ?
+    ORDER BY sd.sale_detail_id
+  `).all(saleId);
+  const subtotal = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+  const basePayload = {
+    sale_id: sale.sale_id,
+    source,
+    customer: {
+      name: sale.customer_name,
+      phone: sale.phone,
+      email: sale.email,
+      address: sale.address
+    },
+    staff_name: sale.staff_name,
+    sale_date: sale.sale_date,
+    payment_method: sale.payment_method,
+    payment_reference: sale.payment_reference,
+    subtotal,
+    discount: Number(sale.discount || 0),
+    tax: Number(sale.tax || 0),
+    total_amount: Number(sale.total_amount || 0),
+    items
+  };
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO sale_documents (sale_id, document_type, document_number, customer_name, total_amount, document_data)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  ["invoice", "receipt"].forEach((type) => {
+    const prefix = type === "invoice" ? "INV" : "RCT";
+    const documentNumber = `${prefix}-${String(sale.sale_date).replaceAll("-", "")}-${String(sale.sale_id).padStart(5, "0")}`;
+    insert.run(
+      sale.sale_id,
+      type,
+      documentNumber,
+      sale.customer_name,
+      sale.total_amount,
+      JSON.stringify({ ...basePayload, document_type: type, document_number: documentNumber })
+    );
+  });
 }
 
 function getProduct(id) {
@@ -540,6 +606,14 @@ app.get("/api/activity-logs", (req, res) => {
     FROM activity_logs l
     LEFT JOIN users u ON u.user_id = l.user_id
     ORDER BY l.log_id
+  `).all());
+});
+
+app.get("/api/sale-documents", (req, res) => {
+  res.json(db.prepare(`
+    SELECT document_id, sale_id, document_type, document_number, customer_name, total_amount, created_at
+    FROM sale_documents
+    ORDER BY document_id
   `).all());
 });
 
@@ -779,6 +853,7 @@ app.post("/api/sales", (req, res, next) => {
         detail.run(sale.lastInsertRowid, item.product_id, item.quantity, item.selling_price, item.subtotal);
         stock.run(item.quantity, item.product_id);
       });
+      createSaleDocuments(sale.lastInsertRowid, "counter sale");
       return sale.lastInsertRowid;
     })(req.body);
     res.status(201).json({ id: result });
@@ -834,6 +909,7 @@ app.post("/api/walkin-transactions", (req, res, next) => {
         INSERT INTO payments (sale_id, purchase_id, amount, payment_date, payment_method, payment_reference)
         VALUES (?, NULL, ?, ?, ?, ?)
       `).run(sale.lastInsertRowid, total, body.sale_date, body.payment_method, paymentReference(body));
+      createSaleDocuments(sale.lastInsertRowid, "walk-in sale");
       return {
         sale_id: sale.lastInsertRowid,
         customer_name: customer.customer_name,
@@ -981,6 +1057,7 @@ function checkoutHandler(req, res, next) {
         orderItem.run(orderResult.lastInsertRowid, item.product.product_id, item.quantity, item.selling_price, item.subtotal);
         stock.run(item.quantity, item.product.product_id);
       });
+      createSaleDocuments(sale.lastInsertRowid, "online checkout");
 
       return { id: orderResult.lastInsertRowid, order_number: orderNumber, subtotal, discount, tax, total };
     })(req.body);

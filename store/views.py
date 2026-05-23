@@ -26,6 +26,7 @@ from .models import (
     Purchase,
     PurchaseDetail,
     Sale,
+    SaleDocument,
     SaleDetail,
     ShopSetting,
     Supplier,
@@ -157,6 +158,54 @@ def _transaction_totals(subtotal):
     taxable = max(amount - discount, 0)
     tax = taxable * VAT_RATE
     return {"subtotal": amount, "discount": discount, "tax": tax, "total": taxable + tax}
+
+
+def _create_sale_documents(sale, source="sale"):
+    sale = Sale.objects.select_related("customer", "user").get(sale_id=sale.sale_id)
+    details = SaleDetail.objects.select_related("product").filter(sale=sale).order_by("sale_detail_id")
+    items = [
+        {
+            "product_name": detail.product.product_name,
+            "quantity": detail.quantity,
+            "selling_price": detail.selling_price,
+            "subtotal": detail.subtotal,
+        }
+        for detail in details
+    ]
+    subtotal = sum(float(item["subtotal"] or 0) for item in items)
+    payload = {
+        "sale_id": sale.sale_id,
+        "source": source,
+        "customer": {
+            "name": sale.customer.customer_name,
+            "phone": sale.customer.phone,
+            "email": sale.customer.email,
+            "address": sale.customer.address,
+        },
+        "staff_name": sale.user.full_name,
+        "sale_date": sale.sale_date.isoformat() if sale.sale_date else None,
+        "payment_method": sale.payment_method,
+        "payment_reference": sale.payment_reference,
+        "subtotal": subtotal,
+        "discount": sale.discount,
+        "tax": sale.tax,
+        "total_amount": sale.total_amount,
+        "items": items,
+    }
+    date_code = sale.sale_date.strftime("%Y%m%d") if sale.sale_date else date.today().strftime("%Y%m%d")
+    for document_type, prefix in (("invoice", "INV"), ("receipt", "RCT")):
+        document_number = f"{prefix}-{date_code}-{sale.sale_id:05d}"
+        SaleDocument.objects.get_or_create(
+            sale=sale,
+            document_type=document_type,
+            defaults={
+                "document_number": document_number,
+                "customer_name": sale.customer.customer_name,
+                "total_amount": sale.total_amount,
+                "document_data": json.dumps({**payload, "document_type": document_type, "document_number": document_number}),
+                "created_at": timezone.now(),
+            },
+        )
 
 
 def _generate_invoice_number(supplier_id, purchase_date=None):
@@ -552,6 +601,22 @@ def activity_logs(request):
         "created_at",
         staff_name=F("user__full_name"),
         role=F("user__role"),
+    )
+    return JsonResponse(_rows(rows), safe=False)
+
+
+def sale_documents(request):
+    denied = _require_staff(request)
+    if denied:
+        return denied
+    rows = SaleDocument.objects.order_by("document_id").values(
+        "document_id",
+        "sale_id",
+        "document_type",
+        "document_number",
+        "customer_name",
+        "total_amount",
+        "created_at",
     )
     return JsonResponse(_rows(rows), safe=False)
 
@@ -981,6 +1046,7 @@ def create_sale(request):
             for product, quantity, selling_price, line_total in items:
                 SaleDetail.objects.create(sale=sale, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 Product.objects.filter(product_id=product.product_id).update(stock_quantity=F("stock_quantity") - quantity)
+            _create_sale_documents(sale, "counter sale")
             _log_activity(request, "create sale", f"Created sale #{sale.sale_id} for UGX {totals['total']:,.0f}")
         return _created(sale.sale_id)
     except Product.DoesNotExist:
@@ -1039,6 +1105,7 @@ def walkin_transaction(request):
                 SaleDetail.objects.create(sale=sale, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 Product.objects.filter(product_id=product.product_id).update(stock_quantity=F("stock_quantity") - quantity)
             Payment.objects.create(sale=sale, amount=totals["total"], payment_date=data["sale_date"], payment_method=data["payment_method"], payment_reference=_payment_reference(data))
+            _create_sale_documents(sale, "walk-in sale")
             _log_activity(request, "create walk-in sale", f"Created walk-in sale #{sale.sale_id} for UGX {totals['total']:,.0f}")
 
         return JsonResponse(
@@ -1451,6 +1518,7 @@ def checkout(request):
                 SaleDetail.objects.create(sale=sale, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 OnlineOrderItem.objects.create(order=order, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 Product.objects.filter(product_id=product.product_id).update(stock_quantity=F("stock_quantity") - quantity)
+            _create_sale_documents(sale, "online checkout")
             seller_received = 0
             if mobile_money_paid:
                 Payment.objects.create(
