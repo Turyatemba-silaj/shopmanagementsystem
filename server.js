@@ -423,7 +423,7 @@ function buildPdf(document) {
 
   rect(0, 760, 595, 82, "0.72 0.20 0.50");
   rect(392, 760, 203, 82, "0.08 0.72 0.65");
-  text("SHOP MANAGEMENT SYSTEM", 42, 806, 18, "1 1 1");
+  text("SHOP STORE", 42, 806, 18, "1 1 1");
   text("Stored document for audit purposes", 42, 786, 10, "1 1 1");
   text(title, 414, 806, 18, "1 1 1");
   text(document.document_number, 414, 784, 10, "1 1 1");
@@ -1218,7 +1218,7 @@ function checkoutHandler(req, res, next) {
         orderItem.run(orderResult.lastInsertRowid, item.product.product_id, item.quantity, item.selling_price, item.subtotal);
         stock.run(item.quantity, item.product.product_id);
       });
-      createSaleDocuments(sale.lastInsertRowid, "online checkout");
+      createSaleDocuments(sale.lastInsertRowid, "checkout");
 
       return { id: orderResult.lastInsertRowid, order_number: orderNumber, subtotal, discount, tax, total };
     })(req.body);

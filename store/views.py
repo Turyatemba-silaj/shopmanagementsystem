@@ -242,7 +242,7 @@ def _build_pdf(payload):
 
     rect(0, 760, 595, 82, "0.72 0.20 0.50")
     rect(392, 760, 203, 82, "0.08 0.72 0.65")
-    text("SHOP MANAGEMENT SYSTEM", 42, 806, 18, "1 1 1")
+    text("SHOP STORE", 42, 806, 18, "1 1 1")
     text("Stored document for audit purposes", 42, 786, 10, "1 1 1")
     text(title, 414, 806, 18, "1 1 1")
     text(document.document_number, 414, 784, 10, "1 1 1")
@@ -1332,7 +1332,7 @@ def online_order_detail(request, pk):
             payment_status=data["payment_status"],
             notes=data.get("notes") or None,
         )
-        _log_activity(request, "update online order", f"Updated online order #{pk}")
+        _log_activity(request, "update order", f"Updated order #{pk}")
         return JsonResponse({"id": pk})
     except (ValueError, IntegrityError) as exc:
         return _error(exc)
@@ -1490,7 +1490,7 @@ def audit_report(request):
     for order in orders:
         ledger.append({
             "date": order.created_at.date().isoformat() if order.created_at else "",
-            "type": "Online order",
+            "type": "Order",
             "reference": order.order_number,
             "staff": order.sale.user.full_name,
             "party": order.customer.customer_name,
@@ -1670,7 +1670,7 @@ def checkout(request):
                 SaleDetail.objects.create(sale=sale, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 OnlineOrderItem.objects.create(order=order, product=product, quantity=quantity, selling_price=selling_price, subtotal=line_total)
                 Product.objects.filter(product_id=product.product_id).update(stock_quantity=F("stock_quantity") - quantity)
-            _create_sale_documents(sale, "online checkout")
+            _create_sale_documents(sale, "checkout")
             seller_received = 0
             if mobile_money_paid:
                 Payment.objects.create(
@@ -1681,7 +1681,7 @@ def checkout(request):
                     payment_reference=data.get("mobile_number"),
                 )
                 seller_received = totals["total"]
-            _log_activity(request, "create online checkout", f"Created online order {order.order_number} for UGX {totals['total']:,.0f}")
+            _log_activity(request, "create checkout", f"Created order {order.order_number} for UGX {totals['total']:,.0f}")
         return JsonResponse({"id": order.order_id, "order_number": order.order_number, "subtotal": subtotal, "discount": totals["discount"], "tax": totals["tax"], "total": totals["total"], "seller_received": seller_received}, status=201)
     except Product.DoesNotExist:
         return _error("Product not found", 404)

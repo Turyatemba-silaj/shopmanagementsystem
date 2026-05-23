@@ -3,7 +3,7 @@ const sections = [
   ["home", "Home"],
   ["marketplace", "Marketplace"],
   ["cart", "Cart"],
-  ["orders", "Online Orders"],
+  ["orders", "Orders"],
   ["reports", "Reports"],
   ["dashboard", "Dashboard"],
   ["products", "Products"],
@@ -291,8 +291,8 @@ async function loadOptions() {
 function setNav() {
   const visibleSections = sections.filter(([id]) => canAccessSection(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
-  $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" || state.section === "login" ? "" : "Management System";
+  $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "" : "Shop";
+  $(".sidebar h1").textContent = state.section === "marketplace" || state.section === "login" ? "" : "Store";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -370,7 +370,7 @@ async function renderMarketplace() {
     <section class="market-shell">
       <section class="market-hero">
         <div class="market-hero-copy">
-          <p class="eyebrow">Online shopping marketplace</p>
+          <p class="eyebrow">Shopping marketplace</p>
           <h3>Discover products, compare prices, and build an order in seconds.</h3>
           <div class="market-stats">
             <span>${visibleProducts.length} products</span>
@@ -536,7 +536,7 @@ async function renderLogin() {
       <div class="panel auth-panel">
         <div class="auth-heading">
           <div>
-            <h3>Management System</h3>
+            <h3>Store</h3>
             <p>Start your session</p>
           </div>
           ${titles[mode] ? `<span>${titles[mode]}</span>` : ""}
@@ -814,12 +814,12 @@ async function renderCart() {
 }
 
 async function renderOrders() {
-  $("#page-title").textContent = "Online Orders";
+  $("#page-title").textContent = "Orders";
   const rows = await api("orders");
   const editing = state.editing.orders;
   $("#view").innerHTML = `
     <section class="grid cards">
-      <article class="card"><span>Total online orders</span><strong>${rows.length}</strong></article>
+      <article class="card"><span>Total orders</span><strong>${rows.length}</strong></article>
       <article class="card"><span>Pending</span><strong>${rows.filter((o) => o.order_status === "pending").length}</strong></article>
       <article class="card"><span>Paid</span><strong>${rows.filter((o) => o.payment_status === "paid").length}</strong></article>
     </section>
@@ -1357,7 +1357,7 @@ async function renderHome() {
         ${homeCategorySlides(products)}
       </div>
       <div class="home-hero-copy">
-        <p class="eyebrow">Online Shop</p>
+        <p class="eyebrow">Shop</p>
         <h3>Run sales, stock, orders, and reports from one workspace.</h3>
       </div>
       <div class="home-actions">
@@ -1370,7 +1370,7 @@ async function renderHome() {
       ${[
         ["Revenue", `UGX ${money(data.revenue)}`],
         ["Net Profit", `UGX ${money(data.netProfit)}`],
-        ["Online Orders", data.onlineOrders],
+        ["Orders", data.onlineOrders],
         ["Low Stock", lowStockCount]
       ].map(([label, value]) => `<article class="card"><span>${label}</span><strong>${value}</strong></article>`).join("")}
     </section>
