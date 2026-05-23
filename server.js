@@ -465,11 +465,47 @@ app.post("/api/login", (req, res, next) => {
   }
 });
 
+app.post("/api/register", (req, res, next) => {
+  try {
+    requireFields(req.body, ["username", "password", "full_name"]);
+    const result = db.prepare(`
+      INSERT INTO users (username, password, full_name, email, role, monthly_salary, salary_status)
+      VALUES (?, ?, ?, ?, ?, 0, 'active')
+    `).run(
+      String(req.body.username).trim(),
+      req.body.password,
+      String(req.body.full_name).trim(),
+      req.body.email || null,
+      req.body.role || "cashier"
+    );
+    const user = db.prepare("SELECT user_id, username, full_name, role FROM users WHERE user_id = ?").get(result.lastInsertRowid);
+    res.status(201).json({ token: authToken(user), user });
+  } catch (err) {
+    if (/UNIQUE constraint failed: users\.username/i.test(err.message)) err.message = "That username is already taken.";
+    next(err);
+  }
+});
+
+app.post("/api/forgot-password", (req, res, next) => {
+  try {
+    requireFields(req.body, ["username", "email", "new_password"]);
+    const user = db.prepare("SELECT user_id FROM users WHERE username = ? AND email = ?").get(
+      String(req.body.username).trim(),
+      String(req.body.email).trim()
+    );
+    if (!user) return res.status(404).json({ error: "No account matched that username and email." });
+    db.prepare("UPDATE users SET password = ? WHERE user_id = ?").run(req.body.new_password, user.user_id);
+    res.json({ message: "Password updated. You can log in now." });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use("/api", (req, res, next) => {
   const publicRoute =
     (req.method === "GET" && req.path === "/storefront") ||
     (req.method === "POST" && ["/checkout", "/orders"].includes(req.path)) ||
-    (req.method === "POST" && req.path === "/login");
+    (req.method === "POST" && ["/login", "/register", "/forgot-password"].includes(req.path));
   if (publicRoute) return next();
   return requireStaff(req, res, next);
 });

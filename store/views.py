@@ -668,6 +668,48 @@ def login(request):
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
+def register(request):
+    try:
+        data = _body(request)
+        _require(data, ["username", "password", "full_name"])
+        user = User.objects.create(
+            username=str(data["username"]).strip(),
+            password=data["password"],
+            full_name=str(data["full_name"]).strip(),
+            email=data.get("email") or None,
+            role=data.get("role") or "cashier",
+            monthly_salary=0,
+            salary_status="active",
+            created_at=timezone.now(),
+        )
+        payload = _staff_payload(user)
+        ActivityLog.objects.create(user=user, action="register", details="Staff account created", created_at=timezone.now())
+        return JsonResponse({"token": signing.dumps(payload, salt=AUTH_SALT), "user": payload}, status=201)
+    except IntegrityError:
+        return _error("That username is already taken.")
+    except ValueError as exc:
+        return _error(exc)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def forgot_password(request):
+    try:
+        data = _body(request)
+        _require(data, ["username", "email", "new_password"])
+        user = User.objects.filter(username=str(data["username"]).strip(), email=str(data["email"]).strip()).first()
+        if not user:
+            return _error("No account matched that username and email.", 404)
+        user.password = data["new_password"]
+        user.save(update_fields=["password"])
+        ActivityLog.objects.create(user=user, action="reset password", details="Staff password reset", created_at=timezone.now())
+        return JsonResponse({"message": "Password updated. You can log in now."})
+    except ValueError as exc:
+        return _error(exc)
+
+
+@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def products(request):
     denied = _require_staff(request)

@@ -86,6 +86,7 @@ let state = {
   section: localStorage.getItem("staffAuth") ? "home" : "marketplace",
   options: {},
   staff: JSON.parse(localStorage.getItem("staffAuth") || "null"),
+  authMode: "login",
   storefront: { q: "", category: "" },
   cart: JSON.parse(localStorage.getItem("shopCart") || "[]"),
   editing: {},
@@ -300,37 +301,96 @@ async function renderMarketplace() {
 
 async function renderLogin() {
   $("#page-title").textContent = "Staff Login";
+  const mode = state.authMode || "login";
+  const titles = {
+    login: "Staff access",
+    register: "Create account",
+    forgot: "Reset password"
+  };
   $("#view").innerHTML = `
-    <section class="panel auth-panel">
-      <h3>Staff access</h3>
-      <form id="login-form" novalidate>
-        <label>Username<input name="username" type="text" autocomplete="username"></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password"></label>
-        <button type="submit">Login</button>
+    <section class="auth-shell">
+      <div class="panel auth-panel">
+        <div class="auth-heading">
+          <h3>${titles[mode]}</h3>
+        </div>
+        <div class="auth-tabs">
+          <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Login</button>
+          <button type="button" class="${mode === "register" ? "active" : ""}" data-auth-mode="register">Create account</button>
+          <button type="button" class="${mode === "forgot" ? "active" : ""}" data-auth-mode="forgot">Forgot password</button>
+        </div>
+        <form id="auth-form" class="auth-form" novalidate>
+          ${mode === "login" ? `
+            <label>Username<input name="username" type="text" autocomplete="username"></label>
+            <label>Password<input name="password" type="password" autocomplete="current-password"></label>
+            <button type="submit">Login</button>
+          ` : ""}
+          ${mode === "register" ? `
+            <label>Full name<input name="full_name" type="text" autocomplete="name"></label>
+            <label>Username<input name="username" type="text" autocomplete="username"></label>
+            <label>Email<input name="email" type="email" autocomplete="email"></label>
+            <label>Password<input name="password" type="password" autocomplete="new-password"></label>
+            <label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password"></label>
+            <button type="submit">Create account</button>
+          ` : ""}
+          ${mode === "forgot" ? `
+            <label>Username<input name="username" type="text" autocomplete="username"></label>
+            <label>Email<input name="email" type="email" autocomplete="email"></label>
+            <label>New password<input name="new_password" type="password" autocomplete="new-password"></label>
+            <label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password"></label>
+            <button type="submit">Reset password</button>
+          ` : ""}
       </form>
+      </div>
     </section>`;
-  $("#login-form").onsubmit = async (event) => {
+  $("#view").onclick = async (event) => {
+    const button = event.target.closest("[data-auth-mode]");
+    if (!button) return;
+    state.authMode = button.dataset.authMode;
+    await renderLogin();
+  };
+  $("#auth-form").onsubmit = async (event) => {
     event.preventDefault();
     const form = event.target;
     const submit = form.querySelector("button[type='submit']");
     form.querySelector(".notice")?.remove();
     const body = Object.fromEntries(new FormData(form).entries());
-    if (!body.username || !body.password) {
+    if (mode === "login" && (!body.username || !body.password)) {
       formNotice(form, "Please enter username and password.");
       return;
     }
+    if (mode === "register" && (!body.full_name || !body.username || !body.password)) {
+      formNotice(form, "Please enter full name, username, and password.");
+      return;
+    }
+    if (mode === "forgot" && (!body.username || !body.email || !body.new_password)) {
+      formNotice(form, "Please enter username, email, and new password.");
+      return;
+    }
+    if ((mode === "register" || mode === "forgot") && (body.password || body.new_password) !== body.confirm_password) {
+      formNotice(form, "Passwords do not match.");
+      return;
+    }
     submit.disabled = true;
-    submit.textContent = "Logging in...";
+    submit.textContent = mode === "login" ? "Logging in..." : mode === "register" ? "Creating account..." : "Resetting password...";
     try {
-      const auth = await api("login", { method: "POST", body: JSON.stringify(body) });
-      state.staff = auth;
-      localStorage.setItem("staffAuth", JSON.stringify(auth));
-      state.section = "home";
-      await render();
+      if (mode === "forgot") {
+        await api("forgot-password", { method: "POST", body: JSON.stringify(body) });
+        state.authMode = "login";
+        await renderLogin();
+        formNotice($("#auth-form"), "Password updated. You can log in now.");
+      } else {
+        const endpoint = mode === "register" ? "register" : "login";
+        const auth = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
+        state.staff = auth;
+        localStorage.setItem("staffAuth", JSON.stringify(auth));
+        state.authMode = "login";
+        state.section = "home";
+        await render();
+      }
     } catch (error) {
       formNotice(form, error.message);
       submit.disabled = false;
-      submit.textContent = "Login";
+      submit.textContent = mode === "login" ? "Login" : mode === "register" ? "Create account" : "Reset password";
     }
   };
 }
