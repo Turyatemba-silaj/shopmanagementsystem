@@ -676,6 +676,7 @@ app.post("/api/forgot-password", (req, res, next) => {
     );
     if (!user) return res.status(404).json({ error: "No account matched that username and email." });
     db.prepare("UPDATE users SET password = ? WHERE user_id = ?").run(req.body.new_password, user.user_id);
+    logActivity(user.user_id, "reset password", "Staff password reset");
     res.json({ message: "Password updated. You can log in now." });
   } catch (err) {
     next(err);
@@ -689,6 +690,20 @@ app.use("/api", (req, res, next) => {
     (req.method === "POST" && ["/login", "/register", "/forgot-password"].includes(req.path));
   if (publicRoute) return next();
   return requireStaff(req, res, next);
+});
+
+app.use("/api", (req, res, next) => {
+  const shouldLog = ["POST", "PUT", "DELETE"].includes(req.method);
+  if (!shouldLog) return next();
+  res.on("finish", () => {
+    if (res.statusCode >= 200 && res.statusCode < 400) {
+      const actionMap = { POST: "create", PUT: "update", DELETE: "delete" };
+      const cleanPath = req.path.replace(/^\/?(api\/?)?/, "").replace(/\/\d+($|\/)/g, "/:id$1");
+      const requestPath = (req.originalUrl || `/api/${cleanPath}`).split("?")[0];
+      logActivity(req.staff?.user_id || null, `${actionMap[req.method]} ${cleanPath}`, `${req.method} ${requestPath} completed with status ${res.statusCode}`);
+    }
+  });
+  next();
 });
 
 app.get("/api/options", (req, res) => {
@@ -736,6 +751,7 @@ app.get("/api/sale-documents/:id/pdf", (req, res) => {
   `).get(req.params.id);
   if (!document) return res.status(404).json({ error: "Document not found" });
   const pdf = buildPdf(saleDocumentLines(document));
+  logActivity(req.staff?.user_id || null, `generate ${document.document_type} pdf`, `Generated PDF ${document.document_number}`);
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${document.document_number}.pdf"`);
   res.send(pdf);

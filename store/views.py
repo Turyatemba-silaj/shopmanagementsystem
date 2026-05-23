@@ -754,6 +754,7 @@ def sale_document_pdf(request, pk):
     document = SaleDocument.objects.filter(document_id=pk).first()
     if not document:
         return _error("Document not found", 404)
+    _log_activity(request, f"generate {document.document_type} pdf", f"Generated PDF {document.document_number}")
     response = HttpResponse(_build_pdf(_sale_document_lines(document)), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{document.document_number}.pdf"'
     return response
@@ -1345,6 +1346,7 @@ def generate_daily_sales_report(request):
     try:
         data = _body(request)
         report = _generate_daily_sales_report(data.get("report_date"))
+        _log_activity(request, "generate daily sales report", f"Generated daily sales report for {report.report_date}")
         return JsonResponse(_format_report(report), status=201)
     except (ValueError, IntegrityError) as exc:
         return _error(exc)
@@ -1543,6 +1545,7 @@ def export_audit_report(request):
     if response.status_code != 200:
         return response
     data = json.loads(response.content.decode("utf-8"))
+    _log_activity(request, "export audit report", f"Exported audit report {data['start_date']} to {data['end_date']}")
     statement = data["statement"]
     counts = data["counts"]
     ledger = data["ledger"]
@@ -1667,6 +1670,7 @@ def checkout(request):
                     payment_reference=data.get("mobile_number"),
                 )
                 seller_received = totals["total"]
+            _log_activity(request, "create online checkout", f"Created online order {order.order_number} for UGX {totals['total']:,.0f}")
         return JsonResponse({"id": order.order_id, "order_number": order.order_number, "subtotal": subtotal, "discount": totals["discount"], "tax": totals["tax"], "total": totals["total"], "seller_received": seller_received}, status=201)
     except Product.DoesNotExist:
         return _error("Product not found", 404)
