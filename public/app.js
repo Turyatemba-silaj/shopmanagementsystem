@@ -282,7 +282,7 @@ function setNav() {
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
   $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" ? "" : state.section === "login" ? "Access" : "Management System";
+  $(".sidebar h1").textContent = state.section === "marketplace" || state.section === "login" ? "" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -514,7 +514,7 @@ async function renderMarketplace() {
 }
 
 async function renderLogin() {
-  $("#page-title").textContent = "Access";
+  $("#page-title").textContent = "";
   const mode = state.authMode || "login";
   const titles = {
     login: "",
@@ -532,7 +532,7 @@ async function renderLogin() {
           ${titles[mode] ? `<span>${titles[mode]}</span>` : ""}
         </div>
         <div class="auth-tabs">
-          <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Access</button>
+          <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Start</button>
           <button type="button" class="${mode === "register" ? "active" : ""}" data-auth-mode="register">Create account</button>
           <button type="button" class="${mode === "forgot" ? "active" : ""}" data-auth-mode="forgot">Forgot password</button>
         </div>
