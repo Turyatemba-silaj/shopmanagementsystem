@@ -1226,7 +1226,7 @@ td.num {
   grid-template-rows: 170px 1fr auto;
   box-shadow: 0 8px 24px rgba(16, 35, 63, 0.06);
   transition: transform 160ms ease, box-shadow 160ms ease;
-  animation: productPopCycle 8s ease-in-out infinite;
+  animation: productSlideCycle 8s ease-in-out infinite;
   animation-delay: var(--pop-delay, 0s);
   transform-origin: center;
 }
@@ -1238,23 +1238,23 @@ td.num {
   opacity: 1;
 }
 
-@keyframes productPopCycle {
+@keyframes productSlideCycle {
   0% {
-    opacity: 0.18;
-    transform: scale(0.94) translateY(8px);
+    opacity: 0;
+    transform: translateX(34px);
   }
-  10%,
-  62% {
+  12%,
+  64% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0);
   }
-  75% {
-    opacity: 0.2;
-    transform: scale(0.96) translateY(6px);
+  78% {
+    opacity: 0;
+    transform: translateX(-34px);
   }
   100% {
-    opacity: 0.18;
-    transform: scale(0.94) translateY(8px);
+    opacity: 0;
+    transform: translateX(-34px);
   }
 }
 
