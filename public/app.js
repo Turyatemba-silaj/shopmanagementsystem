@@ -2322,7 +2322,7 @@ async function renderSaleDocuments() {
               <td>${row.created_at || ""}</td>
               <td class="row-actions">
                 <button type="button" data-print-document="${row.document_id}">Print</button>
-                <button type="button" class="secondary" data-pdf-document="${row.document_id}">PDF</button>
+                <button type="button" class="secondary" data-pdf-document="${row.document_id}" data-pdf-name="${row.document_number}.pdf">PDF</button>
               </td>
             </tr>
           `).join("") || `<tr><td colspan="8">No stored documents yet.</td></tr>`}
@@ -2337,7 +2337,7 @@ async function renderSaleDocuments() {
     }
     const pdfButton = event.target.closest("[data-pdf-document]");
     if (pdfButton) {
-      await printSaleDocument(pdfButton.dataset.pdfDocument, "pdf");
+      await downloadApiFile(`sale-documents/${pdfButton.dataset.pdfDocument}/pdf`, pdfButton.dataset.pdfName || "sale-document.pdf");
     }
   };
 }

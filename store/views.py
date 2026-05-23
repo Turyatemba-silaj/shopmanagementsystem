@@ -208,6 +208,72 @@ def _create_sale_documents(sale, source="sale"):
         )
 
 
+def _pdf_escape(value):
+    return re.sub(r"[^\x09\x0A\x0D\x20-\x7E]", "", str(value or "")).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _sale_document_lines(document):
+    try:
+        data = json.loads(document.document_data or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    title = "SALES INVOICE" if document.document_type == "invoice" else "SALES RECEIPT"
+    customer = data.get("customer") or {}
+    payment_reference = data.get("payment_reference")
+    lines = [
+        title,
+        f"Document: {document.document_number}",
+        f"Sale: #{document.sale_id}",
+        f"Date: {data.get('sale_date') or ''}",
+        f"Customer: {customer.get('name') or document.customer_name or ''}",
+        f"Phone: {customer.get('phone') or ''}",
+        f"Payment: {data.get('payment_method') or ''}{f' ({payment_reference})' if payment_reference else ''}",
+        "",
+        "Items",
+    ]
+    for item in data.get("items") or []:
+        lines.append(f"{item.get('product_name')} x {item.get('quantity')} @ UGX {float(item.get('selling_price') or 0):,.0f} = UGX {float(item.get('subtotal') or 0):,.0f}")
+    lines.extend([
+        "",
+        f"Subtotal: UGX {float(data.get('subtotal') or 0):,.0f}",
+        f"Discount: UGX {float(data.get('discount') or 0):,.0f}",
+        f"VAT: UGX {float(data.get('tax') or 0):,.0f}",
+        f"Total: UGX {float(data.get('total_amount') or document.total_amount or 0):,.0f}",
+        "",
+        "Generated and stored for audit purposes.",
+    ])
+    return lines
+
+
+def _build_pdf(lines):
+    content = "\n".join([
+        "BT",
+        "/F1 12 Tf",
+        "16 TL",
+        "50 790 Td",
+        *[part for line in lines[:46] for part in (f"({_pdf_escape(line)}) Tj", "T*")],
+        "ET",
+    ])
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(content.encode('latin-1'))} >>\nstream\n{content}\nendstream",
+    ]
+    pdf = "%PDF-1.4\n"
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf.encode("latin-1")))
+        pdf += f"{index} 0 obj\n{obj}\nendobj\n"
+    xref = len(pdf.encode("latin-1"))
+    pdf += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n"
+    for offset in offsets[1:]:
+        pdf += f"{offset:010d} 00000 n \n"
+    pdf += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF"
+    return pdf.encode("latin-1")
+
+
 def _generate_invoice_number(supplier_id, purchase_date=None):
     purchase_date = purchase_date or date.today()
     if isinstance(purchase_date, str):
@@ -642,6 +708,18 @@ def sale_document_detail(request, pk):
     except json.JSONDecodeError:
         document["document_data"] = {}
     return JsonResponse(document)
+
+
+def sale_document_pdf(request, pk):
+    denied = _require_staff(request)
+    if denied:
+        return denied
+    document = SaleDocument.objects.filter(document_id=pk).first()
+    if not document:
+        return _error("Document not found", 404)
+    response = HttpResponse(_build_pdf(_sale_document_lines(document)), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{document.document_number}.pdf"'
+    return response
 
 
 @csrf_exempt

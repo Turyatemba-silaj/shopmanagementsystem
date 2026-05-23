@@ -11,6 +11,7 @@ urlpatterns = [
     path("activity-logs", views.activity_logs, name="activity-logs"),
     path("sale-documents", views.sale_documents, name="sale-documents"),
     path("sale-documents/<int:pk>", views.sale_document_detail, name="sale-document-detail"),
+    path("sale-documents/<int:pk>/pdf", views.sale_document_pdf, name="sale-document-pdf"),
     path("shop-settings", views.shop_settings, name="shop-settings"),
     path("dashboard", views.dashboard, name="dashboard"),
     path("storefront", views.storefront, name="storefront"),

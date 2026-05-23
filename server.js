@@ -376,6 +376,79 @@ function createSaleDocuments(saleId, source = "sale") {
   });
 }
 
+function pdfEscape(value) {
+  return String(value ?? "")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function formatMoney(value) {
+  return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function saleDocumentLines(document) {
+  const data = JSON.parse(document.document_data || "{}");
+  const title = document.document_type === "invoice" ? "SALES INVOICE" : "SALES RECEIPT";
+  const customer = data.customer || {};
+  const lines = [
+    title,
+    `Document: ${document.document_number}`,
+    `Sale: #${document.sale_id}`,
+    `Date: ${data.sale_date || ""}`,
+    `Customer: ${customer.name || document.customer_name || ""}`,
+    `Phone: ${customer.phone || ""}`,
+    `Payment: ${data.payment_method || ""}${data.payment_reference ? ` (${data.payment_reference})` : ""}`,
+    "",
+    "Items",
+  ];
+  (data.items || []).forEach((item) => {
+    lines.push(`${item.product_name} x ${item.quantity} @ UGX ${formatMoney(item.selling_price)} = UGX ${formatMoney(item.subtotal)}`);
+  });
+  lines.push(
+    "",
+    `Subtotal: UGX ${formatMoney(data.subtotal || 0)}`,
+    `Discount: UGX ${formatMoney(data.discount || 0)}`,
+    `VAT: UGX ${formatMoney(data.tax || 0)}`,
+    `Total: UGX ${formatMoney(data.total_amount || document.total_amount || 0)}`,
+    "",
+    "Generated and stored for audit purposes."
+  );
+  return lines;
+}
+
+function buildPdf(lines) {
+  const content = [
+    "BT",
+    "/F1 12 Tf",
+    "16 TL",
+    "50 790 Td",
+    ...lines.slice(0, 46).flatMap((line) => [`(${pdfEscape(line)}) Tj`, "T*"]),
+    "ET"
+  ].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(pdf, "binary");
+}
+
 function getProduct(id) {
   return db.prepare("SELECT * FROM products WHERE product_id = ?").get(id);
 }
@@ -625,6 +698,19 @@ app.get("/api/sale-documents/:id", (req, res) => {
   `).get(req.params.id);
   if (!document) return res.status(404).json({ error: "Document not found" });
   res.json({ ...document, document_data: JSON.parse(document.document_data || "{}") });
+});
+
+app.get("/api/sale-documents/:id/pdf", (req, res) => {
+  const document = db.prepare(`
+    SELECT document_id, sale_id, document_type, document_number, customer_name, total_amount, document_data, created_at
+    FROM sale_documents
+    WHERE document_id = ?
+  `).get(req.params.id);
+  if (!document) return res.status(404).json({ error: "Document not found" });
+  const pdf = buildPdf(saleDocumentLines(document));
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${document.document_number}.pdf"`);
+  res.send(pdf);
 });
 
 app.get("/api/dashboard", (req, res) => {
