@@ -217,43 +217,80 @@ def _sale_document_lines(document):
         data = json.loads(document.document_data or "{}")
     except json.JSONDecodeError:
         data = {}
-    title = "SALES INVOICE" if document.document_type == "invoice" else "SALES RECEIPT"
+    return {"document": document, "data": data}
+
+
+def _money(value):
+    return f"{float(value or 0):,.0f}"
+
+
+def _build_pdf(payload):
+    document = payload["document"]
+    data = payload["data"]
     customer = data.get("customer") or {}
+    title = "SALES INVOICE" if document.document_type == "invoice" else "SALES RECEIPT"
+    commands = []
+
+    def text(value, x, y, size=10, color="0.09 0.13 0.18"):
+        commands.append(f"BT /F1 {size} Tf {color} rg {x} {y} Td ({_pdf_escape(value)}) Tj ET")
+
+    def rect(x, y, width, height, color):
+        commands.append(f"{color} rg {x} {y} {width} {height} re f")
+
+    def line(x1, y1, x2, y2, color="0.86 0.89 0.92", width=1):
+        commands.append(f"{color} RG {width} w {x1} {y1} m {x2} {y2} l S")
+
+    rect(0, 760, 595, 82, "0.72 0.20 0.50")
+    rect(392, 760, 203, 82, "0.08 0.72 0.65")
+    text("SHOP MANAGEMENT SYSTEM", 42, 806, 18, "1 1 1")
+    text("Stored document for audit purposes", 42, 786, 10, "1 1 1")
+    text(title, 414, 806, 18, "1 1 1")
+    text(document.document_number, 414, 784, 10, "1 1 1")
+
+    rect(42, 642, 245, 86, "0.97 0.98 0.99")
+    rect(308, 642, 245, 86, "0.97 0.98 0.99")
+    text("BILL TO", 58, 706, 9, "0.39 0.44 0.51")
+    text(customer.get("name") or document.customer_name or "Customer", 58, 686, 14)
+    text(f"Phone: {customer.get('phone') or ''}", 58, 668, 10, "0.39 0.44 0.51")
+    text(f"Address: {str(customer.get('address') or '')[:42]}", 58, 652, 10, "0.39 0.44 0.51")
+    text("DOCUMENT DETAILS", 324, 706, 9, "0.39 0.44 0.51")
+    text(f"Sale #{document.sale_id}", 324, 686, 12)
+    text(f"Date: {data.get('sale_date') or ''}", 324, 668, 10, "0.39 0.44 0.51")
     payment_reference = data.get("payment_reference")
-    lines = [
-        title,
-        f"Document: {document.document_number}",
-        f"Sale: #{document.sale_id}",
-        f"Date: {data.get('sale_date') or ''}",
-        f"Customer: {customer.get('name') or document.customer_name or ''}",
-        f"Phone: {customer.get('phone') or ''}",
-        f"Payment: {data.get('payment_method') or ''}{f' ({payment_reference})' if payment_reference else ''}",
-        "",
-        "Items",
-    ]
-    for item in data.get("items") or []:
-        lines.append(f"{item.get('product_name')} x {item.get('quantity')} @ UGX {float(item.get('selling_price') or 0):,.0f} = UGX {float(item.get('subtotal') or 0):,.0f}")
-    lines.extend([
-        "",
-        f"Subtotal: UGX {float(data.get('subtotal') or 0):,.0f}",
-        f"Discount: UGX {float(data.get('discount') or 0):,.0f}",
-        f"VAT: UGX {float(data.get('tax') or 0):,.0f}",
-        f"Total: UGX {float(data.get('total_amount') or document.total_amount or 0):,.0f}",
-        "",
-        "Generated and stored for audit purposes.",
-    ])
-    return lines
+    text(f"Payment: {data.get('payment_method') or ''}{f' ({payment_reference})' if payment_reference else ''}", 324, 652, 10, "0.39 0.44 0.51")
 
+    rect(42, 594, 511, 28, "0.08 0.72 0.65")
+    text("Item", 58, 604, 10, "1 1 1")
+    text("Qty", 328, 604, 10, "1 1 1")
+    text("Price", 382, 604, 10, "1 1 1")
+    text("Amount", 474, 604, 10, "1 1 1")
+    y = 570
+    for index, item in enumerate((data.get("items") or [])[:14]):
+        if index % 2 == 0:
+            rect(42, y - 8, 511, 24, "0.97 0.98 0.99")
+        text(str(item.get("product_name") or "")[:42], 58, y, 10)
+        text(item.get("quantity"), 332, y, 10)
+        text(f"UGX {_money(item.get('selling_price'))}", 382, y, 10)
+        text(f"UGX {_money(item.get('subtotal'))}", 474, y, 10)
+        y -= 26
+    line(42, y + 12, 553, y + 12)
 
-def _build_pdf(lines):
-    content = "\n".join([
-        "BT",
-        "/F1 12 Tf",
-        "16 TL",
-        "50 790 Td",
-        *[part for line in lines[:46] for part in (f"({_pdf_escape(line)}) Tj", "T*")],
-        "ET",
-    ])
+    totals_y = max(170, y - 18)
+    rect(334, totals_y - 82, 219, 112, "0.97 0.98 0.99")
+    text("Subtotal", 354, totals_y + 6, 10, "0.39 0.44 0.51")
+    text(f"UGX {_money(data.get('subtotal'))}", 454, totals_y + 6, 10)
+    text("Discount", 354, totals_y - 14, 10, "0.39 0.44 0.51")
+    text(f"UGX {_money(data.get('discount'))}", 454, totals_y - 14, 10)
+    text("VAT", 354, totals_y - 34, 10, "0.39 0.44 0.51")
+    text(f"UGX {_money(data.get('tax'))}", 454, totals_y - 34, 10)
+    rect(334, totals_y - 82, 219, 34, "0.72 0.20 0.50")
+    text("TOTAL", 354, totals_y - 70, 12, "1 1 1")
+    text(f"UGX {_money(data.get('total_amount') or document.total_amount)}", 444, totals_y - 70, 12, "1 1 1")
+
+    text("Thank you for your business.", 42, 100, 12)
+    text("This document was automatically generated and stored for audit purposes.", 42, 78, 9, "0.39 0.44 0.51")
+    line(42, 64, 553, 64, "0.72 0.20 0.50", 1.5)
+    content = "\n".join(commands)
     objects = [
         "<< /Type /Catalog /Pages 2 0 R >>",
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",

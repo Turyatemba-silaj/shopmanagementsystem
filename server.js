@@ -390,43 +390,71 @@ function formatMoney(value) {
 
 function saleDocumentLines(document) {
   const data = JSON.parse(document.document_data || "{}");
-  const title = document.document_type === "invoice" ? "SALES INVOICE" : "SALES RECEIPT";
-  const customer = data.customer || {};
-  const lines = [
-    title,
-    `Document: ${document.document_number}`,
-    `Sale: #${document.sale_id}`,
-    `Date: ${data.sale_date || ""}`,
-    `Customer: ${customer.name || document.customer_name || ""}`,
-    `Phone: ${customer.phone || ""}`,
-    `Payment: ${data.payment_method || ""}${data.payment_reference ? ` (${data.payment_reference})` : ""}`,
-    "",
-    "Items",
-  ];
-  (data.items || []).forEach((item) => {
-    lines.push(`${item.product_name} x ${item.quantity} @ UGX ${formatMoney(item.selling_price)} = UGX ${formatMoney(item.subtotal)}`);
-  });
-  lines.push(
-    "",
-    `Subtotal: UGX ${formatMoney(data.subtotal || 0)}`,
-    `Discount: UGX ${formatMoney(data.discount || 0)}`,
-    `VAT: UGX ${formatMoney(data.tax || 0)}`,
-    `Total: UGX ${formatMoney(data.total_amount || document.total_amount || 0)}`,
-    "",
-    "Generated and stored for audit purposes."
-  );
-  return lines;
+  return { ...document, data };
 }
 
-function buildPdf(lines) {
-  const content = [
-    "BT",
-    "/F1 12 Tf",
-    "16 TL",
-    "50 790 Td",
-    ...lines.slice(0, 46).flatMap((line) => [`(${pdfEscape(line)}) Tj`, "T*"]),
-    "ET"
-  ].join("\n");
+function buildPdf(document) {
+  const data = document.data || {};
+  const customer = data.customer || {};
+  const title = document.document_type === "invoice" ? "SALES INVOICE" : "SALES RECEIPT";
+  const total = data.total_amount || document.total_amount || 0;
+  const commands = [];
+  const text = (value, x, y, size = 10, color = "0.09 0.13 0.18") => {
+    commands.push(`BT /F1 ${size} Tf ${color} rg ${x} ${y} Td (${pdfEscape(value)}) Tj ET`);
+  };
+  const rect = (x, y, w, h, color) => commands.push(`${color} rg ${x} ${y} ${w} ${h} re f`);
+  const line = (x1, y1, x2, y2, color = "0.86 0.89 0.92", width = 1) => commands.push(`${color} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`);
+
+  rect(0, 760, 595, 82, "0.72 0.20 0.50");
+  rect(392, 760, 203, 82, "0.08 0.72 0.65");
+  text("SHOP MANAGEMENT SYSTEM", 42, 806, 18, "1 1 1");
+  text("Stored document for audit purposes", 42, 786, 10, "1 1 1");
+  text(title, 414, 806, 18, "1 1 1");
+  text(document.document_number, 414, 784, 10, "1 1 1");
+
+  rect(42, 642, 245, 86, "0.97 0.98 0.99");
+  rect(308, 642, 245, 86, "0.97 0.98 0.99");
+  text("BILL TO", 58, 706, 9, "0.39 0.44 0.51");
+  text(customer.name || document.customer_name || "Customer", 58, 686, 14);
+  text(customer.phone ? `Phone: ${customer.phone}` : "Phone:", 58, 668, 10, "0.39 0.44 0.51");
+  text(customer.address ? `Address: ${String(customer.address).slice(0, 42)}` : "Address:", 58, 652, 10, "0.39 0.44 0.51");
+  text("DOCUMENT DETAILS", 324, 706, 9, "0.39 0.44 0.51");
+  text(`Sale #${document.sale_id}`, 324, 686, 12);
+  text(`Date: ${data.sale_date || ""}`, 324, 668, 10, "0.39 0.44 0.51");
+  text(`Payment: ${data.payment_method || ""}${data.payment_reference ? ` (${data.payment_reference})` : ""}`, 324, 652, 10, "0.39 0.44 0.51");
+
+  rect(42, 594, 511, 28, "0.08 0.72 0.65");
+  text("Item", 58, 604, 10, "1 1 1");
+  text("Qty", 328, 604, 10, "1 1 1");
+  text("Price", 382, 604, 10, "1 1 1");
+  text("Amount", 474, 604, 10, "1 1 1");
+  let y = 570;
+  (data.items || []).slice(0, 14).forEach((item, index) => {
+    if (index % 2 === 0) rect(42, y - 8, 511, 24, "0.97 0.98 0.99");
+    text(String(item.product_name || "").slice(0, 42), 58, y, 10);
+    text(item.quantity, 332, y, 10);
+    text(`UGX ${formatMoney(item.selling_price)}`, 382, y, 10);
+    text(`UGX ${formatMoney(item.subtotal)}`, 474, y, 10);
+    y -= 26;
+  });
+  line(42, y + 12, 553, y + 12);
+
+  const totalsY = Math.max(170, y - 18);
+  rect(334, totalsY - 82, 219, 112, "0.97 0.98 0.99");
+  text("Subtotal", 354, totalsY + 6, 10, "0.39 0.44 0.51");
+  text(`UGX ${formatMoney(data.subtotal || 0)}`, 454, totalsY + 6, 10);
+  text("Discount", 354, totalsY - 14, 10, "0.39 0.44 0.51");
+  text(`UGX ${formatMoney(data.discount || 0)}`, 454, totalsY - 14, 10);
+  text("VAT", 354, totalsY - 34, 10, "0.39 0.44 0.51");
+  text(`UGX ${formatMoney(data.tax || 0)}`, 454, totalsY - 34, 10);
+  rect(334, totalsY - 82, 219, 34, "0.72 0.20 0.50");
+  text("TOTAL", 354, totalsY - 70, 12, "1 1 1");
+  text(`UGX ${formatMoney(total)}`, 444, totalsY - 70, 12, "1 1 1");
+
+  text("Thank you for your business.", 42, 100, 12);
+  text("This document was automatically generated and stored for audit purposes.", 42, 78, 9, "0.39 0.44 0.51");
+  line(42, 64, 553, 64, "0.72 0.20 0.50", 1.5);
+  const content = commands.join("\n");
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
