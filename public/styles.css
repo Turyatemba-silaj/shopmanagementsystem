@@ -462,6 +462,33 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.auth-heading div {
+  display: grid;
+  gap: 4px;
+}
+
+.auth-heading h3 {
+  color: var(--ink);
+  font-size: 24px;
+}
+
+.auth-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auth-heading > span {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: #ccfbf1;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .auth-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -491,6 +518,36 @@ button:disabled {
 
 .auth-form {
   grid-template-columns: 1fr;
+}
+
+.auth-input {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  overflow: hidden;
+}
+
+.auth-input i {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  color: white;
+  background: var(--nav);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.auth-input input {
+  border: 0;
+  border-radius: 0;
+}
+
+.auth-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
 }
 
 form {

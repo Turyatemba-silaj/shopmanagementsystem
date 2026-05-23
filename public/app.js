@@ -282,7 +282,7 @@ function setNav() {
   const visibleSections = state.staff ? sections : sections.filter(([id]) => publicSections.has(id));
   document.body.classList.toggle("marketplace-page", state.section === "marketplace");
   $(".sidebar .eyebrow").textContent = state.section === "marketplace" ? "Customer shop" : "Online Shop";
-  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : "Management System";
+  $(".sidebar h1").textContent = state.section === "marketplace" ? "Marketplace" : state.section === "login" ? "Staff Access" : "Management System";
   $("#nav").innerHTML = visibleSections.map(([id, label]) => (
     `<button type="button" class="${state.section === id ? "active" : ""}" data-section="${id}">${label}${id === "cart" ? ` (${cartCount()})` : ""}</button>`
   )).join("") + (state.staff ? `<button type="button" data-logout>Logout</button>` : "");
@@ -525,7 +525,11 @@ async function renderLogin() {
     <section class="auth-shell">
       <div class="panel auth-panel">
         <div class="auth-heading">
-          <h3>${titles[mode]}</h3>
+          <div>
+            <h3>Management System</h3>
+            <p>Login to start your session</p>
+          </div>
+          <span>${titles[mode]}</span>
         </div>
         <div class="auth-tabs">
           <button type="button" class="${mode === "login" ? "active" : ""}" data-auth-mode="login">Login</button>
@@ -534,8 +538,8 @@ async function renderLogin() {
         </div>
         <form id="auth-form" class="auth-form" novalidate>
           ${mode === "login" ? `
-            <label>Username<input name="username" type="text" autocomplete="username"></label>
-            <label>Password<input name="password" type="password" autocomplete="current-password"></label>
+            <label>Username<span class="auth-input"><i aria-hidden="true">@</i><input name="username" type="text" autocomplete="username"></span></label>
+            <label>Password<span class="auth-input"><i aria-hidden="true">#</i><input name="password" type="password" autocomplete="current-password"></span></label>
             <button type="submit">Login</button>
           ` : ""}
           ${mode === "register" ? `
