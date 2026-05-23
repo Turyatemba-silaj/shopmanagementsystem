@@ -1939,9 +1939,22 @@ async function renderWalkinCustomer() {
     const submit = form.querySelector("button[type='submit']");
     form.querySelector(".notice")?.remove();
     const body = Object.fromEntries(new FormData(form).entries());
-    body.items = state.walkinLines.filter((line) => line.product_id);
+    body.items = state.walkinLines
+      .filter((line) => line.product_id)
+      .map((line) => {
+        const product = state.options.products.find((p) => String(p.id) === String(line.product_id));
+        return {
+          product_id: line.product_id,
+          quantity: Number(line.quantity || 1),
+          selling_price: Number(line.selling_price || product?.selling_price || 0)
+        };
+      });
     if (!body.items.length) {
       form.insertAdjacentHTML("afterbegin", `<div class="notice">Add at least one product to complete the transaction.</div>`);
+      return;
+    }
+    if (body.items.some((item) => !item.selling_price || item.quantity <= 0)) {
+      form.insertAdjacentHTML("afterbegin", `<div class="notice">Select a valid product and quantity before completing the transaction.</div>`);
       return;
     }
     submit.disabled = true;
@@ -2083,7 +2096,10 @@ function bindLines(type) {
       if (priceInput) priceInput.value = selectedProduct[productPriceKey];
     }
     if (field === "product_id") {
-      if (type === "walkin") return renderWalkinCustomer();
+      if (type === "walkin") {
+        updateWalkinSummary();
+        return;
+      }
       updateLineAmounts(type);
       return;
     }
