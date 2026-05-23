@@ -97,7 +97,6 @@ let state = {
   saleLines: [{}],
   walkinLines: [{}],
   lastWalkinReceipt: null,
-  stockNotice: "",
   flash: {}
 };
 
@@ -378,8 +377,8 @@ async function renderMarketplace() {
             <span>${visibleProducts.length} item${visibleProducts.length === 1 ? "" : "s"}</span>
           </section>
           <section class="product-grid market-grid">
-            ${visibleProducts.map((p) => `
-              <article class="product-card market-card">
+            ${visibleProducts.map((p, index) => `
+              <article class="product-card market-card" style="--pop-delay:${(index % 10) * 0.7}s">
                 <div class="discount-badge">${Number(p.stock_quantity || 0) < 10 ? "Low" : "Hot"}</div>
                 <button class="product-open" type="button" data-view-product="${p.product_id}" aria-label="View ${p.product_name}">
                   <div class="product-image">${productImage(p)}</div>
@@ -676,7 +675,7 @@ async function renderCart() {
           </label>
           <div class="location-actions">
             <button type="button" class="secondary" data-use-location>Use live location</button>
-            <span id="location-status">Location not shared yet.</span>
+            <span id="location-status"></span>
           </div>
           <label class="wide">Notes<textarea name="notes"></textarea></label>
           <button type="submit">Place order</button>
@@ -688,11 +687,6 @@ async function renderCart() {
     if (event.target.dataset.cartQty !== undefined) {
       const item = state.cart[Number(event.target.dataset.cartQty)];
       const requested = Number(event.target.value || 1);
-      if (requested > Number(item.stock_quantity || 0)) {
-        state.stockNotice = `Stock notification: ${item.product_name} has only ${item.stock_quantity} available, but ${requested} was ordered.`;
-      } else {
-        state.stockNotice = "";
-      }
       item.quantity = Math.max(1, Math.min(requested, Number(item.stock_quantity)));
       saveCart();
       renderCart();
@@ -732,14 +726,8 @@ async function renderCart() {
     event.preventDefault();
     const form = event.target;
     const submit = form.querySelector("button[type='submit']");
-    form.querySelector(".notice")?.remove();
     if (!state.cart.length) {
       $("#location-status").textContent = "Add at least one product to the cart before placing an order.";
-      return;
-    }
-    const overStock = state.cart.find((item) => Number(item.quantity || 0) > Number(item.stock_quantity || 0));
-    if (overStock) {
-      $("#location-status").textContent = `${overStock.product_name} has only ${overStock.stock_quantity} available.`;
       return;
     }
     if (!form.address.value.trim()) {

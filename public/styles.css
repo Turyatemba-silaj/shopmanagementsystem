@@ -1226,11 +1226,42 @@ td.num {
   grid-template-rows: 170px 1fr auto;
   box-shadow: 0 8px 24px rgba(16, 35, 63, 0.06);
   transition: transform 160ms ease, box-shadow 160ms ease;
+  animation: productPopCycle 8s ease-in-out infinite;
+  animation-delay: var(--pop-delay, 0s);
+  transform-origin: center;
 }
 
 .market-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 14px 34px rgba(16, 35, 63, 0.14);
+  animation-play-state: paused;
+  opacity: 1;
+}
+
+@keyframes productPopCycle {
+  0% {
+    opacity: 0.18;
+    transform: scale(0.94) translateY(8px);
+  }
+  10%,
+  62% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  75% {
+    opacity: 0.2;
+    transform: scale(0.96) translateY(6px);
+  }
+  100% {
+    opacity: 0.18;
+    transform: scale(0.94) translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-card {
+    animation: none;
+  }
 }
 
 .market-card .product-open {
