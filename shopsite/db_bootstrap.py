@@ -71,6 +71,8 @@ def initialize_sqlite_database(path):
               buying_price REAL NOT NULL DEFAULT 0,
               selling_price REAL NOT NULL DEFAULT 0,
               product_image TEXT,
+              specifications TEXT,
+              color TEXT,
               stock_quantity INTEGER NOT NULL DEFAULT 0,
               reorder_level INTEGER NOT NULL DEFAULT 0,
               unit TEXT NOT NULL DEFAULT 'pcs',
@@ -215,10 +217,18 @@ def initialize_sqlite_database(path):
             );
             """
         )
+        _ensure_column(connection, "products", "specifications", "TEXT")
+        _ensure_column(connection, "products", "color", "TEXT")
         _seed_database(connection)
         connection.commit()
     finally:
         connection.close()
+
+
+def _ensure_column(connection, table, column, definition):
+    columns = [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
+    if column not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def _seed_database(connection):

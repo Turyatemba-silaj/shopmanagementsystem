@@ -526,10 +526,12 @@ def options(_request):
                 )
             ],
             "products": _rows(
-                Product.objects.order_by("product_name").values(
+                Product.objects.order_by("product_id").values(
                     "selling_price",
                     "buying_price",
                     "stock_quantity",
+                    "specifications",
+                    "color",
                     id=F("product_id"),
                     name=F("product_name"),
                 )
@@ -542,7 +544,7 @@ def activity_logs(request):
     denied = _require_staff(request)
     if denied:
         return denied
-    rows = ActivityLog.objects.select_related("user").order_by("-created_at", "-log_id").values(
+    rows = ActivityLog.objects.select_related("user").order_by("log_id").values(
         "log_id",
         "user_id",
         "action",
@@ -611,13 +613,15 @@ def storefront(request):
         products = products.filter(Q(product_name__icontains=query) | Q(barcode__icontains=query))
     if category_id:
         products = products.filter(category_id=category_id)
-    data = products.order_by("product_name").values(
+    data = products.order_by("product_id").values(
         "product_id",
         "category_id",
         "product_name",
         "barcode",
         "selling_price",
         "product_image",
+        "specifications",
+        "color",
         "stock_quantity",
         "unit",
         category_name=F("category__category_name"),
@@ -670,7 +674,7 @@ def products(request):
     if denied:
         return denied
     if request.method == "GET":
-        data = Product.objects.select_related("category").order_by("product_name").values(
+        data = Product.objects.select_related("category").order_by("product_id").values(
             "product_id",
             "category_id",
             "product_name",
@@ -678,6 +682,8 @@ def products(request):
             "buying_price",
             "selling_price",
             "product_image",
+            "specifications",
+            "color",
             "stock_quantity",
             "reorder_level",
             "unit",
@@ -688,7 +694,7 @@ def products(request):
 
     try:
         data = _body(request)
-        fields = ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "stock_quantity", "reorder_level", "unit"]
+        fields = ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "specifications", "color", "stock_quantity", "reorder_level", "unit"]
         _require(data, ["category_id", "product_name", "buying_price", "selling_price", "stock_quantity", "reorder_level", "unit"])
         product = Product.objects.create(**_clean(data, fields), created_at=timezone.now())
         _log_activity(request, "create product", f"Created product #{product.product_id}: {product.product_name}")
@@ -717,7 +723,7 @@ def product_detail(request, pk):
 
     try:
         data = _body(request)
-        fields = ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "stock_quantity", "reorder_level", "unit"]
+        fields = ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "specifications", "color", "stock_quantity", "reorder_level", "unit"]
         _require(data, ["category_id", "product_name", "buying_price", "selling_price", "stock_quantity", "reorder_level", "unit"])
         Product.objects.filter(product_id=pk).update(**_clean(data, fields))
         _log_activity(request, "update product", f"Updated product #{pk}")
@@ -737,7 +743,7 @@ def crud_collection(request, table):
     pk = cfg["pk"]
     if request.method == "GET":
         if table == "expenses":
-            data = Expense.objects.select_related("user").order_by("-expense_date", "-expense_id").values(
+            data = Expense.objects.select_related("user").order_by("expense_id").values(
                 "expense_id",
                 "user_id",
                 "expense_name",
@@ -747,7 +753,7 @@ def crud_collection(request, table):
                 recorded_by=F("user__full_name"),
             )
             return JsonResponse(_rows(data), safe=False)
-        return JsonResponse(_rows(model.objects.order_by(f"-{pk}").values()), safe=False)
+        return JsonResponse(_rows(model.objects.order_by(pk).values()), safe=False)
 
     try:
         data = _body(request)
@@ -1027,7 +1033,7 @@ def online_orders(request):
         denied = _require_staff(request)
         if denied:
             return denied
-        data = OnlineOrder.objects.select_related("customer", "sale").order_by("-order_id").values(
+        data = OnlineOrder.objects.select_related("customer", "sale").order_by("order_id").values(
             "order_id",
             "order_number",
             "sale_id",
@@ -1425,7 +1431,7 @@ def payments(request):
     if denied:
         return denied
     if request.method == "GET":
-        data = Payment.objects.order_by("-payment_date", "-payment_id").values()
+        data = Payment.objects.order_by("payment_id").values()
         return JsonResponse(_rows(data), safe=False)
     try:
         data = _body(request)
@@ -1455,7 +1461,7 @@ def payrolls(request):
     if denied:
         return denied
     _sync_salary_expenses()
-    rows = Payroll.objects.select_related("user").order_by("-period_month", "user__full_name").values(
+    rows = Payroll.objects.select_related("user").order_by("payroll_id").values(
         "payroll_id",
         "user_id",
         "period_month",
@@ -1508,7 +1514,7 @@ def generate_payroll(request):
                     payroll.net_salary = employee.monthly_salary + payroll.bonus - payroll.deductions
                     payroll.save(update_fields=["basic_salary", "net_salary"])
         _log_activity(request, "generate payroll", f"Generated payroll for {period_month}")
-        rows = list(Payroll.objects.select_related("user").filter(period_month=period_month).order_by("user__full_name").values(
+        rows = list(Payroll.objects.select_related("user").filter(period_month=period_month).order_by("payroll_id").values(
             "payroll_id",
             "user_id",
             "period_month",

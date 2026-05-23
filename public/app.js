@@ -112,6 +112,13 @@ const saveCart = () => localStorage.setItem("shopCart", JSON.stringify(state.car
 const productImage = (product) => product.product_image
   ? `<img src="${product.product_image}" alt="${product.product_name}">`
   : `<span>${product.product_name.slice(0, 2).toUpperCase()}</span>`;
+const safeCssColor = (color) => {
+  const value = String(color || "").trim();
+  return /^#[0-9a-f]{3,8}$/i.test(value) || /^[a-z]+$/i.test(value) ? value : "#e5e7eb";
+};
+const colorSwatch = (color) => color
+  ? `<span class="color-swatch"><i style="background:${safeCssColor(color)}"></i>${color}</span>`
+  : "";
 
 function imageFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -253,6 +260,8 @@ async function renderMarketplace() {
               <span>${p.category_name}</span>
               <h3>${p.product_name}</h3>
               <strong>UGX ${money(p.selling_price)}</strong>
+              ${p.color ? colorSwatch(p.color) : ""}
+              ${p.specifications ? `<p>${p.specifications}</p>` : ""}
               <p>${p.stock_quantity} ${p.unit} available</p>
               <div class="stock-meter"><span style="width:${Math.min(100, Number(p.stock_quantity || 0) * 10)}%"></span></div>
             </div>
@@ -786,6 +795,15 @@ function table(rows, columns, actions = true, className = "") {
   if (!rows.length) return `<p class="muted">No records yet.</p>`;
   const editOnly = actions === "edit";
   const numericColumns = new Set(["quantity", "price", "amount", "revenue", "cost", "profit", "loss", "total_amount", "discount", "tax"]);
+  const sortedRows = rows.slice().sort((left, right) => {
+    const column = columns[0];
+    const a = left[column] ?? "";
+    const b = right[column] ?? "";
+    const aNumber = Number(a);
+    const bNumber = Number(b);
+    if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return aNumber - bNumber;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+  });
   const formatCell = (value) => {
     if (typeof value !== "number") return value ?? "";
     return money(value);
@@ -794,7 +812,7 @@ function table(rows, columns, actions = true, className = "") {
     <table class="${className}">
       <thead><tr>${columns.map((c) => `<th class="${numericColumns.has(c) ? "num" : ""}">${c.replaceAll("_", " ")}</th>`).join("")}${actions ? "<th></th>" : ""}</tr></thead>
       <tbody>
-        ${rows.map((row) => `
+        ${sortedRows.map((row) => `
           <tr>
             ${columns.map((c) => `<td class="${numericColumns.has(c) || typeof row[c] === "number" ? "num" : ""}">${formatCell(row[c])}</td>`).join("")}
             ${actions ? `<td class="row-actions"><button type="button" data-edit="${row[columns[0]]}">Edit</button>${editOnly ? "" : `<button class="danger" type="button" data-delete="${row[columns[0]]}">Delete</button>`}</td>` : ""}
@@ -1251,6 +1269,8 @@ async function renderProducts() {
   state.flash.products = "";
   const displayRows = rows.map((p) => ({
     ...p,
+    product_color: colorSwatch(p.color),
+    specifications: p.specifications || "",
     stock_balance: p.stock_quantity,
     stock_status: Number(p.stock_quantity || 0) < 10 ? "<span class='pill low'>Purchase needed</span>" : "<span class='pill ok'>OK</span>"
   }));
@@ -1263,9 +1283,11 @@ async function renderProducts() {
           ${inputField(["category_id", "Category", "ref", "categories"], editing || {})}
           <label>Product name<input name="product_name" type="text" value="${editing?.product_name || ""}" required></label>
           <label>Barcode<input name="barcode" type="text" value="${editing?.barcode || ""}" placeholder="Optional"></label>
+          <label>Color<input name="color" type="text" value="${editing?.color || ""}" placeholder="e.g. Red, Black, #2563eb"></label>
           <label class="wide">Product photo<input id="product-photo" type="file" accept="image/*"></label>
           <input name="product_image" type="hidden" value="${editing?.product_image || ""}">
           <div class="upload-preview" id="upload-preview">${editing?.product_image ? `<img src="${editing.product_image}" alt="Product preview">` : `<span>Product image preview</span>`}</div>
+          <label class="wide">Product specifications<textarea name="specifications" placeholder="Size, material, model, capacity, ingredients, or other details">${editing?.specifications || ""}</textarea></label>
           <label>Buying price<input name="buying_price" type="number" min="0" step="0.01" value="${editing?.buying_price ?? 0}" required></label>
           <label>Selling price<input name="selling_price" type="number" min="0" step="0.01" value="${editing?.selling_price ?? 0}" required></label>
           <label>Opening stock<input name="stock_quantity" type="number" min="0" step="1" value="${editing?.stock_quantity ?? 0}" required></label>
@@ -1278,7 +1300,7 @@ async function renderProducts() {
       </section>
       <section class="panel">
         ${stockAlerts(rows)}
-        ${table(displayRows, ["product_id", "product_name", "category_name", "barcode", "buying_price", "selling_price", "stock_balance", "reorder_level", "unit", "stock_status"])}
+        ${table(displayRows, ["product_id", "product_name", "category_name", "barcode", "product_color", "specifications", "buying_price", "selling_price", "stock_balance", "reorder_level", "unit", "stock_status"])}
       </section>
     </div>`;
   $("#product-form").oninput = (event) => {

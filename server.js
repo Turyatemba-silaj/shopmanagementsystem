@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS products (
   buying_price REAL NOT NULL DEFAULT 0,
   selling_price REAL NOT NULL DEFAULT 0,
   product_image TEXT,
+  specifications TEXT,
+  color TEXT,
   stock_quantity INTEGER NOT NULL DEFAULT 0,
   reorder_level INTEGER NOT NULL DEFAULT 0,
   unit TEXT NOT NULL DEFAULT 'pcs',
@@ -205,6 +207,8 @@ ensureColumn("payments", "payment_reference", "TEXT");
 ensureColumn("users", "monthly_salary", "REAL NOT NULL DEFAULT 0");
 ensureColumn("users", "salary_status", "TEXT NOT NULL DEFAULT 'active'");
 ensureColumn("payrolls", "expense_id", "INTEGER");
+ensureColumn("products", "specifications", "TEXT");
+ensureColumn("products", "color", "TEXT");
 
 if (count("users") === 0) {
   db.exec(`
@@ -218,7 +222,7 @@ const tables = {
   suppliers: ["supplier_name", "phone", "email", "address", "company_name"],
   customers: ["customer_name", "phone", "email", "address"],
   users: ["username", "password", "full_name", "email", "role", "monthly_salary", "salary_status"],
-  products: ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "stock_quantity", "reorder_level", "unit"],
+  products: ["category_id", "product_name", "barcode", "buying_price", "selling_price", "product_image", "specifications", "color", "stock_quantity", "reorder_level", "unit"],
   expenses: ["user_id", "expense_name", "amount", "expense_date", "description"],
 };
 
@@ -476,7 +480,7 @@ app.get("/api/options", (req, res) => {
     suppliers: db.prepare("SELECT supplier_id AS id, supplier_name AS name FROM suppliers ORDER BY supplier_name").all(),
     customers: db.prepare("SELECT customer_id AS id, customer_name AS name FROM customers ORDER BY customer_name").all(),
     users: db.prepare("SELECT user_id AS id, full_name AS name, monthly_salary FROM users ORDER BY full_name").all(),
-    products: db.prepare("SELECT product_id AS id, product_name AS name, selling_price, buying_price, stock_quantity FROM products ORDER BY product_name").all()
+    products: db.prepare("SELECT product_id AS id, product_name AS name, selling_price, buying_price, stock_quantity FROM products ORDER BY product_id").all()
   });
 });
 
@@ -514,11 +518,12 @@ app.get("/api/storefront", (req, res) => {
   }
   const products = db.prepare(`
     SELECT p.product_id, p.category_id, p.product_name, p.barcode, p.selling_price, p.product_image,
+           p.specifications, p.color,
            p.stock_quantity, p.unit, c.category_name
     FROM products p
     JOIN categories c ON c.category_id = p.category_id
     WHERE ${where.join(" AND ")}
-    ORDER BY p.product_name
+    ORDER BY p.product_id
   `).all(params);
   const categories = db.prepare("SELECT category_id, category_name FROM categories ORDER BY category_name").all();
   res.json({ categories, products });
@@ -528,7 +533,7 @@ app.get("/api/products", (req, res) => {
   res.json(db.prepare(`
     SELECT p.*, c.category_name
     FROM products p JOIN categories c ON c.category_id = p.category_id
-    ORDER BY p.product_name
+    ORDER BY p.product_id
   `).all());
 });
 
@@ -536,7 +541,7 @@ for (const [table, fields] of Object.entries(tables)) {
   if (table === "products") continue;
   const id = primaryKeys[table];
   app.get(`/api/${table}`, (req, res) => {
-    res.json(db.prepare(`SELECT * FROM ${table} ORDER BY ${id} DESC`).all());
+    res.json(db.prepare(`SELECT * FROM ${table} ORDER BY ${id}`).all());
   });
   app.post(`/api/${table}`, (req, res, next) => {
     try {
@@ -616,7 +621,7 @@ app.get("/api/purchases", (req, res) => {
     FROM purchases p
     JOIN suppliers s ON s.supplier_id = p.supplier_id
     JOIN users u ON u.user_id = p.user_id
-    ORDER BY p.purchase_date DESC, p.purchase_id DESC
+    ORDER BY p.purchase_id
   `).all());
 });
 
@@ -676,7 +681,7 @@ app.get("/api/sales", (req, res) => {
     FROM sales s
     JOIN customers c ON c.customer_id = s.customer_id
     JOIN users u ON u.user_id = s.user_id
-    ORDER BY s.sale_date DESC, s.sale_id DESC
+    ORDER BY s.sale_id
   `).all());
 });
 
@@ -813,7 +818,7 @@ app.get("/api/orders", (req, res) => {
     FROM online_orders o
     JOIN customers c ON c.customer_id = o.customer_id
     JOIN sales s ON s.sale_id = o.sale_id
-    ORDER BY o.order_id DESC
+    ORDER BY o.order_id
   `).all());
 });
 
@@ -936,7 +941,7 @@ app.get("/api/reports/daily-sales", (req, res) => {
   const rows = db.prepare(`
     SELECT *
     FROM daily_sales_reports
-    ORDER BY report_date DESC
+    ORDER BY report_id
     LIMIT 30
   `).all();
   res.json(rows.map(formatReport));
@@ -967,7 +972,7 @@ app.get("/api/reports/sales", (req, res) => {
     JOIN users u ON u.user_id = s.user_id
     JOIN products p ON p.product_id = sd.product_id
     WHERE s.sale_date BETWEEN ? AND ?
-    ORDER BY s.sale_date DESC, s.sale_id DESC, p.product_name
+    ORDER BY s.sale_date, s.sale_id, p.product_name
   `).all(range.start, range.end);
 
   res.json({
@@ -979,7 +984,7 @@ app.get("/api/reports/sales", (req, res) => {
 });
 
 app.get("/api/payments", (req, res) => {
-  res.json(db.prepare("SELECT * FROM payments ORDER BY payment_date DESC, payment_id DESC").all());
+  res.json(db.prepare("SELECT * FROM payments ORDER BY payment_id").all());
 });
 
 app.post("/api/payments", (req, res, next) => {
@@ -1017,7 +1022,7 @@ app.get("/api/payrolls", (req, res) => {
     SELECT p.*, u.full_name AS employee_name, u.role AS position
     FROM payrolls p
     JOIN users u ON u.user_id = p.user_id
-    ORDER BY p.period_month DESC, u.full_name
+    ORDER BY p.payroll_id
   `).all());
 });
 
@@ -1046,7 +1051,7 @@ app.post("/api/payrolls/generate", (req, res, next) => {
       FROM payrolls p
       JOIN users u ON u.user_id = p.user_id
       WHERE p.period_month = ?
-      ORDER BY u.full_name
+      ORDER BY p.payroll_id
     `).all(periodMonth);
     res.status(201).json({ period_month: periodMonth, count: rows.length, rows });
   } catch (err) {

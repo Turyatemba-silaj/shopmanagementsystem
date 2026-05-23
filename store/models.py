@@ -52,6 +52,8 @@ class Product(models.Model):
     buying_price = models.FloatField(default=0)
     selling_price = models.FloatField(default=0)
     product_image = models.TextField(blank=True, null=True)
+    specifications = models.TextField(blank=True, null=True)
+    color = models.CharField(max_length=80, blank=True, null=True)
     stock_quantity = models.IntegerField(default=0)
     reorder_level = models.IntegerField(default=0)
     unit = models.CharField(max_length=40, default="pcs")
