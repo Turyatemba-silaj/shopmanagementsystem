@@ -7,6 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from xml.sax.saxutils import escape
 
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.core import signing
 from django.db import IntegrityError, transaction
 from django.db.models import F, OuterRef, Q, Subquery, Sum, Value
@@ -872,7 +873,26 @@ def login(request):
     try:
         data = _body(request)
         _require(data, ["username", "password"])
-        user = User.objects.filter(username__iexact=str(data["username"]).strip(), password=data["password"]).first()
+        username = str(data["username"]).strip()
+        user = User.objects.filter(username__iexact=username, password=data["password"]).first()
+        if not user:
+            auth_user = authenticate(request, username=username, password=data["password"])
+            if auth_user and auth_user.is_active and (auth_user.is_staff or auth_user.is_superuser):
+                user = User.objects.filter(username__iexact=auth_user.username).first()
+                user_defaults = {
+                    "password": "",
+                    "full_name": auth_user.get_full_name() or auth_user.username,
+                    "email": auth_user.email or None,
+                    "role": "admin" if auth_user.is_superuser else "cashier",
+                    "monthly_salary": 0,
+                    "salary_status": "active",
+                }
+                if user:
+                    for field, value in user_defaults.items():
+                        setattr(user, field, value)
+                    user.save(update_fields=[*user_defaults.keys()])
+                else:
+                    user = User.objects.create(**user_defaults, username=auth_user.username, created_at=timezone.now())
         if not user:
             return _error("Invalid username or password", 401)
         payload = _staff_payload(user)
